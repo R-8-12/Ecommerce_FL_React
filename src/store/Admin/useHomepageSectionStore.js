@@ -94,6 +94,11 @@ const useHomepageSectionStore = create(
       fetchSections: async (enabledOnly = false, usePublicEndpoint = false) => {
         set({ loading: true, error: null });
         try {
+          if (get().sections.length > 0) {
+            console.log('Using cached sections data');
+            set({ loading: false });
+            return get().sections;
+          }
           let response;
           if (usePublicEndpoint) {
             // Use public endpoint for homepage display

@@ -167,6 +167,204 @@ export const reportsService = {
     }
   },
 
+  // Generate Categories Report
+  generateCategoriesReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/categories/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating categories report:', error);
+      throw error;
+    }
+  },
+
+  // Download Categories Report as CSV
+  downloadCategoriesReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/categories/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `categories_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading categories report:', error);
+      throw error;
+    }
+  },
+
+  // Generate Delivery Report
+  generateDeliveryReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/delivery/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating delivery report:', error);
+      throw error;
+    }
+  },
+
+  // Download Delivery Report as CSV
+  downloadDeliveryReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/delivery/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `delivery_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading delivery report:', error);
+      throw error;
+    }
+  },
+
+  // Generate Taxes Report
+  generateTaxesReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/taxes/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating taxes report:', error);
+      throw error;
+    }
+  },
+
+  // Download Taxes Report as CSV
+  downloadTaxesReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/taxes/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `taxes_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading taxes report:', error);
+      throw error;
+    }
+  },
+
+  // Generate Coupons Report
+  generateCouponsReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/coupons/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating coupons report:', error);
+      throw error;
+    }
+  },
+
+  // Download Coupons Report as CSV
+  downloadCouponsReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/coupons/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `coupons_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading coupons report:', error);
+      throw error;
+    }
+  },
+
+  // Generate Comparison Report
+  generateComparisonReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/comparison/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating comparison report:', error);
+      throw error;
+    }
+  },
+
+  // Download Comparison Report as CSV
+  downloadComparisonReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/comparison/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `comparison_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading comparison report:', error);
+      throw error;
+    }
+  },
+
+  // Generate Downloads Report
+  generateDownloadsReport: async (dateRange = 'last30days', format = 'json') => {
+    try {
+      const response = await adminApi.get(`/reports/downloads/?range=${dateRange}&format=${format}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error generating downloads report:', error);
+      throw error;
+    }
+  },
+
+  // Download Downloads Report as CSV
+  downloadDownloadsReport: async (dateRange = 'last30days') => {
+    try {
+      const response = await adminApi.get(`/reports/downloads/?range=${dateRange}&format=csv`, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `downloads_report_${dateRange}_${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      
+      return true;
+    } catch (error) {
+      console.error('Error downloading downloads report:', error);
+      throw error;
+    }
+  },
+
   // Get available date ranges
   getDateRanges: () => [
     { value: 'today', label: 'Today' },

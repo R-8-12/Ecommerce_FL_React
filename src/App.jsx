@@ -77,6 +77,7 @@ import FirebaseOptimizationMonitor from "./components/FirebaseOptimizationMonito
 import FirebaseSetup from "./components/FirebaseSetup";
 import AdminAuthDebugger from "./components/AdminAuthDebugger";
 import ErrorBoundary from "./components/ErrorBoundary";
+import Page404 from "./pages/Page404";
 
 // Layout component that will be used across all pages
 const Layout = () => {
@@ -322,132 +323,64 @@ const App = () => {
             )
           }
         />
-        <Route element={<AdminLayout />}>
-          <Route
-            path="/admin/dashboard"
-            element={
-              isAdminAuthenticated ? (
-                <AdminDashboard />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/firebase-test"
-            element={
-              isAdminAuthenticated ? (
-                <FirebaseOptimizationTest />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/firebase-monitor"
-            element={
-              isAdminAuthenticated ? (
-                <FirebaseOptimizationMonitor />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/auth-debug"
-            element={<AdminAuthDebugger />}
-          />
-          <Route
-            path="/admin/products"
-            element={
-              isAdminAuthenticated ? (
-                <AdminProducts />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/inventory"
-            element={
-              isAdminAuthenticated ? (
-                <AdminInventory />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/orders"
-            element={
-              isAdminAuthenticated ? (
-                <AdminOrders />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              isAdminAuthenticated ? (
-                <AdminUsers />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/returns"
-            element={
-              isAdminAuthenticated ? (
-                <AdminReturns />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/content"
-            element={
-              isAdminAuthenticated ? (
-                <AdminContent />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/sell-phones"
-            element={
-              isAdminAuthenticated ? (
-                <AdminSellPhone />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/reviews"
-            element={
-              isAdminAuthenticated ? (
-                <AdminReviews />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-          <Route
-            path="/admin/delivery-partners"
-            element={
-              isAdminAuthenticated ? (
-                <AdminDeliveryPartners />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
-            }
-          />
-        </Route>
+        {isAdminAuthenticated && (
+          <Route element={<AdminLayout />}>
+            <Route
+              path="/admin/dashboard"
+              element={<AdminDashboard />}
+            />
+            <Route
+              path="/admin/firebase-test"
+              element={<FirebaseOptimizationTest />}
+            />
+            <Route
+              path="/admin/firebase-monitor"
+              element={<FirebaseOptimizationMonitor />}
+            />
+            <Route
+              path="/admin/auth-debug"
+              element={<AdminAuthDebugger />}
+            />
+            <Route
+              path="/admin/products"
+              element={<AdminProducts />}
+            />
+            <Route
+              path="/admin/inventory"
+              element={<AdminInventory />}
+            />
+            <Route
+              path="/admin/orders"
+              element={<AdminOrders />}
+            />
+            <Route
+              path="/admin/users"
+              element={<AdminUsers />}
+            />
+            <Route
+              path="/admin/returns"
+              element={<AdminReturns />}
+            />
+            <Route
+              path="/admin/content"
+              element={<AdminContent />}
+            />
+            <Route
+              path="/admin/sell-phones"
+              element={<AdminSellPhone />}
+            />
+            <Route
+              path="/admin/reviews"
+              element={<AdminReviews />}
+            />
+            <Route
+              path="/admin/delivery-partners"
+              element={<AdminDeliveryPartners />}
+            />
+          </Route>
+        )};
+        {/* Catch-all route for 404 Not Found */}
+        <Route path="*" element={<Page404 />} />
       </Routes>
     </BrowserRouter>
     </SimpleThemeProvider>

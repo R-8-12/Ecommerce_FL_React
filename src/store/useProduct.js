@@ -26,6 +26,7 @@ export const useProductStore = create((set, get) => ({
 
     try {
       const response = await api.get(`${API_URL}/products/products/`);
+      //console.log(response.data.products[0]);
 
       // Extract unique categories and brands
       const categories = Array.from(

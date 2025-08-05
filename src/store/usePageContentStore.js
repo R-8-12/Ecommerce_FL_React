@@ -1,6 +1,7 @@
 import { create } from "zustand";
-// import api from "../services/api"; // Removed unused import
+ //import api from "../services/api"; // Removed unused import
 import { adminApi } from "../services/api";
+
 
 export const usePageContentStore = create((set, get) => ({
   // State
@@ -16,10 +17,17 @@ export const usePageContentStore = create((set, get) => ({
     if (currentState.pages.length > 0) {
       return currentState.pages;
     }
+
+    if(get().pages && get().pages.length > 0) {
+      console.log("Using cached page content");
+      return get().pages;
+    }
     
     try {
       // Use the public endpoint instead of admin endpoint
+
       const response = await adminApi.get("/admin/content/pages/");
+    
       if (response.status === 200) {
         set({ pages: response.data.pages || [] });
         return response.data.pages;

@@ -11,6 +11,10 @@ export const useAdminProducts = create((set, get) => ({
 
   // Fetch all products and initialize filtered list
   fetchProducts: async () => {
+    const { products } = get();
+    if (products.list && products.list.length > 0) {
+      return;
+    }
     set((state) => ({
       products: {
         ...state.products,
@@ -22,7 +26,7 @@ export const useAdminProducts = create((set, get) => ({
     try {
       const response = await adminApi.get("/admin/get_all_products");
       const products = response.data.products;
-
+      console.log(products)
       set({
         products: {
           list: products,
