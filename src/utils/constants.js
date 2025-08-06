@@ -23,6 +23,7 @@ export const ROUTES = {
   CHECKOUT: "/checkout",
   ORDERS: "/orders",
   WISHLIST: "/wishlist",
+  GAMIFICATION: "/gamification",
   ABOUT: "/about",
   CONTACT: "/contact",
   TRACK_ORDER: "/track-order",

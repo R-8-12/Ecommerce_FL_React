@@ -18,6 +18,7 @@ import { useWishlistStore } from "../store/useWishlist";
 import { Link, useNavigate } from "react-router-dom";
 import { useProductStore } from "../store/useProduct";
 import { useBannerStore } from "../store/Admin/useBannerStore";
+import WalletComponent from "./gamification/WalletComponent";
 
 // FIX 1: Add a reusable 'useOutsideClick' hook for clean "click-outside" logic
 const useOutsideClick = (callback) => {
@@ -777,6 +778,11 @@ const Header = () => {
                   Wishlist
                 </p>
               </Link>
+
+              {/* Wallet Component */}
+              <div className="hidden sm:flex flex-col items-center">
+                <WalletComponent />
+              </div>
               
               {/* Orders */}
               <Link

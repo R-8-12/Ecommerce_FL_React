@@ -3,6 +3,7 @@ import api from "../services/api";
 import { TOKEN_KEY, USER_KEY } from "../utils/constants";
 import { auth, provider } from "../firebase";
 import { signInWithPopup } from "firebase/auth";
+import { awardCoins, checkLoginStreakBonus } from "../utils/gamificationUtils";
 
 // Helper function to safely parse JSON from localStorag      // Prepare user data for consistent structure
       // const userInfo = {
@@ -107,6 +108,15 @@ export const useAuthStore = create((set) => ({
         isLoading: false,
       });
 
+      // Award gamification rewards for login
+      try {
+        await awardCoins('login');
+        await checkLoginStreakBonus();
+      } catch (gamificationError) {
+        console.error('Gamification error during login:', gamificationError);
+        // Don't block login success for gamification failures
+      }
+
       return data;
     } catch (error) {
       let errorMessage = "Login failed. Please check your credentials.";
@@ -206,6 +216,14 @@ export const useAuthStore = create((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Award gamification rewards for new signup
+      try {
+        await awardCoins('register');
+      } catch (gamificationError) {
+        console.error('Gamification error during signup:', gamificationError);
+        // Don't block signup success for gamification failures
+      }
 
       return data;
     } catch (error) {
@@ -320,6 +338,20 @@ export const useAuthStore = create((set) => ({
         isAuthenticated: true,
         isLoading: false,
       });
+
+      // Award gamification rewards for Google signup/login
+      try {
+        // Check if this is a new user (first signup) vs returning user (login)
+        if (data.is_new_user) {
+          await awardCoins('register');
+        } else {
+          await awardCoins('login');
+          await checkLoginStreakBonus();
+        }
+      } catch (gamificationError) {
+        console.error('Gamification error during Google auth:', gamificationError);
+        // Don't block authentication success for gamification failures
+      }
 
       return data;
     } catch (error) {

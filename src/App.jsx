@@ -78,6 +78,8 @@ import FirebaseSetup from "./components/FirebaseSetup";
 import AdminAuthDebugger from "./components/AdminAuthDebugger";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Page404 from "./pages/Page404";
+import GamificationIntegration from "./components/gamification/GamificationIntegration";
+import GamificationDashboard from "./pages/GamificationDashboard";
 
 // Layout component that will be used across all pages
 const Layout = () => {
@@ -267,6 +269,7 @@ const App = () => {
           <Route path="/category/:category" element={<ProductList />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/wishlist" element={<Wishlist />} />
+          <Route path="/gamification" element={<GamificationDashboard />} />
           <Route path="/orders" element={<OrderStatus />} />
           <Route path="/order-tracking" element={<OrderTracking />} />
           <Route path="/order-tracking/:id" element={<OrderTrackingDetail />} />

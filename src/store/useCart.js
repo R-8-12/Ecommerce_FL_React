@@ -20,7 +20,11 @@ export const useCartStore = create(
 
           // Check if user is authenticated
           const isAuthenticated = useAuthStore.getState().isAuthenticated;
-
+          // // If authenticated, fetch cart from server
+          // if( isAuthenticated && get().items.length > 0) {
+          //   console.log("Using cached cart items");
+          //   return get().items;
+          // }
           if (isAuthenticated) {
             const response = await api.get("/users/cart/");
             const cartItems = response.data.cart.map((item) => ({
@@ -65,6 +69,8 @@ export const useCartStore = create(
         try {
           set({ isLoading: true, error: null });
           const isAuthenticated = useAuthStore.getState().isAuthenticated;
+          
+          
           if (isAuthenticated) {
             // Send to server first
             await api.post(`/users/cart/add/${product.id}/`, {
@@ -123,7 +129,7 @@ export const useCartStore = create(
         try {
           set({ isLoading: true, error: null });
           const isAuthenticated = useAuthStore.getState().isAuthenticated;
-
+          
           if (isAuthenticated) {
             // Remove from server first using item_id
             const response = await api.delete(`/users/cart/remove/${itemId}/`);
@@ -183,7 +189,7 @@ export const useCartStore = create(
             const { items } = get();
             const item = items.find((item) => item.item_id === itemId);
             if (item) {
-              await api.delete(`/users/cart/remove/${itemId}/`);
+              //await api.delete(`/users/cart/remove/${itemId}/`);
               await api.post(`/users/cart/add/${item.id}/`, {
                 quantity,
                 variant_id: item.variant_id || null,

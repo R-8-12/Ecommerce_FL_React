@@ -7,6 +7,7 @@ import PageManager from "../../components/Admin/Content/PageManager";
 import ColorManager from "../../components/Admin/Content/ColorManager";
 import ThemeManager from "../../components/Admin/Content/SimpleThemeManager";
 import UserFriendlyHomepageManager from "../../components/Admin/Content/UserFriendlyHomepageManager";
+import GamificationManager from "../../components/Admin/Content/GamificationManager";
 import { bannerPositionOptions } from "../../constants/bannerOptions";
 
 const AdminContent = () => {
@@ -139,6 +140,21 @@ const AdminContent = () => {
           >
             Homepage Sections
           </button>
+          <button
+            className={`px-6 py-3 font-medium transition-all duration-200 ${
+              activeTab === "gamification"
+                ? "border-b-2"
+                : "hover:opacity-75"
+            }`}
+            style={{
+              color: activeTab === "gamification" ? "var(--brand-primary)" : "var(--text-secondary)",
+              borderBottomColor: activeTab === "gamification" ? "var(--brand-primary)" : "transparent",
+              backgroundColor: activeTab === "gamification" ? "var(--bg-accent-light)" : "transparent",
+            }}
+            onClick={() => setActiveTab("gamification")}
+          >
+            Gamification
+          </button>
         </div>
         <div className="p-6">
           {activeTab === "banners" && (
@@ -150,6 +166,7 @@ const AdminContent = () => {
           {activeTab === "pages" && <PageManager />}
           {activeTab === "theme" && <ThemeManager />}
           {activeTab === "homepage" && <UserFriendlyHomepageManager />}
+          {activeTab === "gamification" && <GamificationManager />}
         </div>
       </div>
     </div>

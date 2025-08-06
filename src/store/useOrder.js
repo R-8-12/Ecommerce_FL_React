@@ -101,7 +101,7 @@ const initiateRazorpayPayment = (razorpayData, onSuccess, onFailure) => {
   });
 };
 
-export const useOrderStore = create((set) => ({
+export const useOrderStore = create((set, get) => ({
   orders: [],
   currentOrder: null,
   isLoading: false,
@@ -139,6 +139,10 @@ export const useOrderStore = create((set) => ({
 
   // Fetch all orders for the current user
   fetchOrders: async () => {
+    if (get().isLoading) {
+      console.log("Orders are already being fetched, skipping duplicate request");
+      return get().orders;  
+    }
     try {
       set({ isLoading: true, error: null });
 
@@ -169,6 +173,15 @@ export const useOrderStore = create((set) => ({
       set({ isProcessingPayment: true, error: null });
       console.log("Starting placeOrderFromCart with addressId:", addressId);
 
+      if(!addressId) {
+        toast.error("Address ID is required to place an order");
+        set({ isProcessingPayment: false });
+        return null;
+      }
+      // if(get().isProcessingPayment) {
+      //   console.log("Order is already being processed, skipping duplicate request");
+      //   return get().currentOrder;
+      // }
       // Get cart items from cart store
       const cartItems = useCartStore.getState().items;
       console.log("Cart items:", cartItems);
@@ -194,7 +207,11 @@ export const useOrderStore = create((set) => ({
       };
 
       console.log("Order data being sent:", orderData);
-
+      // Check if order is already being processed
+      // if (get().isProcessingPayment) {
+      //   console.log("Order is already being processed, skipping duplicate request");
+      //   return get().currentOrder;
+      // }
       // Use POST method for order creation to match API requirements
       const response = await api.post(
         "/users/order/razorpay/create/",
@@ -303,6 +320,15 @@ export const useOrderStore = create((set) => ({
         return null;
       }
 
+      if(!addressId) {
+        toast.error("Address ID is required to place an order");
+        set({ isProcessingPayment: false });
+        return null;
+      }
+      if(get().isProcessingPayment) {
+        console.log("Order is already being processed, skipping duplicate request");
+        return null;
+      }
       // Calculate total amount in paise (assuming product.price is in rupees)
       const totalAmountInPaise = Math.round(product.price * quantity * 100);
       const orderData = {

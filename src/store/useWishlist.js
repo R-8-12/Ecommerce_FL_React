@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import api from "../services/api";
 import { useAuthStore } from "./useAuth";
 import toast from "react-hot-toast";
+import { awardCoins } from "../utils/gamificationUtils";
 
 export const useWishlistStore = create(
   persist(
@@ -80,6 +81,12 @@ export const useWishlistStore = create(
             items: [...items, product],
             isLoading: false,
           });
+          
+          // Award coins for adding to wishlist (only for authenticated users)
+          if (isAuthenticated) {
+            awardCoins('wishlist');
+          }
+          
           toast.success("Item added to wishlist");
           return true;
         } catch (error) {

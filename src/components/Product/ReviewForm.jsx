@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { FiStar } from "react-icons/fi";
 import { useProductStore } from "../../store/useProduct";
 import { useAuthStore } from "../../store/useAuth";
+import { awardCoins } from '../../utils/gamificationUtils';
 
 const ReviewForm = ({ productId, onReviewSubmitted }) => {
   const [rating, setRating] = useState(0);
@@ -34,6 +35,8 @@ const ReviewForm = ({ productId, onReviewSubmitted }) => {
 
     const result = await addReview(productId, reviewData);
     if (result.success) {
+      await awardCoins('review');
+
       // Reset form
       setRating(0);
       setComment("");
