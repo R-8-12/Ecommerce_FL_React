@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../utils/constants";
 import Breadcrumb from "../components/Breadcrumb/Breadcrumb";
 import EnhancedProductFilter from "../components/ProductList/EnhancedProductFilter";
@@ -8,6 +8,7 @@ import ProductGrid from "../components/ProductList/ProductGrid";
 import NoResultsFound from "../components/ProductList/NoResultsFound";
 import Pagination from "../components/common/Pagination";
 import ProductService from "../services/productService";
+import useGlobalFilterStore from "../store/useGlobalFilterStore";
 import { FiFilter } from "react-icons/fi";
 
 // Helper function to normalize category names
@@ -28,6 +29,9 @@ const normalizeCategory = (cat) => {
 
 const EnhancedProductList = () => {
   let { category } = useParams();
+  const [searchParams] = useSearchParams();
+  const { setFiltersFromURL, toEnhancedProductFilters, clearFilters, getFilterDescription } = useGlobalFilterStore();
+  
   // Normalize category to lowercase and handle common variations
   category = normalizeCategory(category);
 
@@ -50,6 +54,32 @@ const EnhancedProductList = () => {
     stockFilters: { inStock: false, outOfStock: false },
     discount: null
   });
+
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const urlFilters = setFiltersFromURL(searchParams);
+    const enhancedFilters = toEnhancedProductFilters();
+    
+    // Apply URL filters to current filters
+    setCurrentFilters(prev => ({
+      ...prev,
+      ...enhancedFilters
+    }));
+
+    // Set search query if present
+    const queryFromURL = searchParams.get('query');
+    if (queryFromURL) {
+      setSearchQuery(queryFromURL);
+    }
+
+    // Set sort order if present
+    const sortFromURL = searchParams.get('sort');
+    if (sortFromURL) {
+      setSortBy(sortFromURL);
+    }
+
+    console.log('Applied URL filters:', urlFilters);
+  }, [searchParams, setFiltersFromURL, toEnhancedProductFilters]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -260,6 +290,7 @@ const EnhancedProductList = () => {
 
   // Reset all filters
   const resetFilters = () => {
+    // Clear local filters
     setCurrentFilters({
       brands: [],
       categories: [],
@@ -271,7 +302,15 @@ const EnhancedProductList = () => {
       stockFilters: { inStock: false, outOfStock: false },
       discount: null
     });
+    
+    // Clear global filters
+    clearFilters();
+    
+    // Clear search query
     setSearchQuery("");
+    
+    // Clear sort
+    setSortBy("popularity");
   };
 
   // Pagination calculations
@@ -353,6 +392,28 @@ const EnhancedProductList = () => {
 
           {/* Product Grid */}
           <div className="w-full md:w-3/4">
+            {/* Applied Filters Display */}
+            {getFilterDescription() && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      Applied Filters: 
+                    </span>
+                    <span className="text-sm text-blue-600 dark:text-blue-300 ml-2">
+                      {getFilterDescription()}
+                    </span>
+                  </div>
+                  <button
+                    onClick={resetFilters}
+                    className="text-xs px-3 py-1 bg-blue-100 hover:bg-blue-200 dark:bg-blue-800 dark:hover:bg-blue-700 text-blue-800 dark:text-blue-200 rounded-full transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+              </div>
+            )}
+            
             {/* Results Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="text-sm text-gray-600 dark:text-gray-400">

@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import useBrandsStore from "../../store/Admin/useBrandsStore";
+import usePublicBrandsStore from "../../store/usePublicBrandsStore";
 
 const BrandsSection = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleBrands, setVisibleBrands] = useState(6);
   
-  // Use the brands store
-  const { brands, loading, fetchBrands } = useBrandsStore();
+  // Use the public brands store
+  const { brands, loading, fetchPublicBrands } = usePublicBrandsStore();
 
   // Fetch brands on component mount
   useEffect(() => {
-    fetchBrands();
-  }, [fetchBrands]);
+    fetchPublicBrands(false); // Get all brands, not just featured
+  }, [fetchPublicBrands]);
 
   // Filter to get display brands (active brands, prioritizing featured ones)
   const displayBrands = React.useMemo(() => {

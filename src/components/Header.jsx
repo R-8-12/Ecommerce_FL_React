@@ -138,7 +138,7 @@ const Header = () => {
           title: "Mobile Accessories",
           subtitle: "Starting ₹99",
           buttonText: "Explore",
-          link: "/category/accessories"
+          link: "/category/mobile-accessories"
         }
       ],
       subcategories: [
@@ -158,14 +158,14 @@ const Header = () => {
         {
           title: "Mobile Accessories", 
           items: [
-            { name: "Cases & Covers", path: "/category/accessories?type=cases", popular: true },
-            { name: "Screen Protectors", path: "/category/accessories?type=screen-guards" },
-            { name: "Chargers & Cables", path: "/category/accessories?type=chargers" },
-            { name: "Power Banks", path: "/category/accessories?type=powerbanks" },
-            { name: "Mobile Holders", path: "/category/accessories?type=holders" },
-            { name: "Headphones", path: "/category/accessories?type=headphones" },
-            { name: "Memory Cards", path: "/category/accessories?type=memory" },
-            { name: "Bluetooth Speakers", path: "/category/accessories?type=speakers" },
+            { name: "Cases & Covers", path: "/category/mobile-accessories?type=cases", popular: true },
+            { name: "Screen Protectors", path: "/category/mobile-accessories?type=screen-guards" },
+            { name: "Chargers & Cables", path: "/category/mobile-accessories?type=chargers" },
+            { name: "Power Banks", path: "/category/mobile-accessories?type=powerbanks" },
+            { name: "Mobile Holders", path: "/category/mobile-accessories?type=holders" },
+            { name: "Headphones", path: "/category/mobile-accessories?type=headphones" },
+            { name: "Memory Cards", path: "/category/mobile-accessories?type=memory" },
+            { name: "Bluetooth Speakers", path: "/category/mobile-accessories?type=speakers" },
           ],
         },
         {
@@ -237,12 +237,12 @@ const Header = () => {
         {
           title: "Computer Accessories",
           items: [
-            { name: "Wireless Mouse", path: "/category/accessories?type=mouse" },
-            { name: "Mechanical Keyboards", path: "/category/accessories?type=keyboards", popular: true },
-            { name: "Laptop Bags", path: "/category/accessories?type=bags" },
-            { name: "Laptop Stands", path: "/category/accessories?type=stands" },
-            { name: "Webcams", path: "/category/accessories?type=webcams" },
-            { name: "USB Hubs", path: "/category/accessories?type=hubs" },
+            { name: "Wireless Mouse", path: "/category/laptop-accessories?type=mouse" },
+            { name: "Mechanical Keyboards", path: "/category/laptop-accessories?type=keyboards", popular: true },
+            { name: "Laptop Bags", path: "/category/laptop-accessories?type=bags" },
+            { name: "Laptop Stands", path: "/category/laptop-accessories?type=stands" },
+            { name: "Webcams", path: "/category/laptop-accessories?type=webcams" },
+            { name: "USB Hubs", path: "/category/laptop-accessories?type=hubs" },
           ],
         },
         {

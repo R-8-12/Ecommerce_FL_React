@@ -146,7 +146,25 @@ const useHomepageSectionStore = create(
       addSection: async (sectionData) => {
         set({ loading: true, error: null });
         try {
-          const response = await adminApi.post('/admin/homepage/sections/add/', sectionData);
+          // Validate required fields before sending
+          if (!sectionData.section_type || !sectionData.title) {
+            throw new Error('Section type and title are required');
+          }
+
+          // Clean and structure the data to match backend requirements
+          const cleanSectionData = {
+            section_type: sectionData.section_type,
+            title: sectionData.title.trim(),
+            enabled: sectionData.enabled !== undefined ? sectionData.enabled : true,
+            order: sectionData.order !== undefined ? sectionData.order : 0,
+            design_template: sectionData.design_template || 'default',
+            config: sectionData.config || {}
+          };
+
+          console.log('Sending section data:', cleanSectionData);
+          console.log('Available section types:', ['banners', 'flash_deal', 'featured_products', 'categories', 'featured_deal', 'clearance_sales', 'channel', 'deal_of_the_day', 'new_arrivals', 'section_banners', 'brands', 'phones_and_gadgets', 'electronic_gadgets', 'footer_section']);
+
+          const response = await adminApi.post('/admin/homepage/sections/add/', cleanSectionData);
           
           if (response.status === 201) {
             const newSection = response.data.section;
@@ -156,10 +174,25 @@ const useHomepageSectionStore = create(
               loading: false 
             });
             toast.success('Homepage section created successfully');
-            return newSection;
+            return { success: true, data: newSection };
           }
         } catch (error) {
           console.error('Error creating homepage section:', error);
+          
+          // Enhanced error handling with more specific messages
+          let errorMessage = 'Failed to create section';
+          if (error.response?.status === 400) {
+            const errorData = error.response.data;
+            if (errorData.error) {
+              errorMessage = errorData.error;
+            } else {
+              errorMessage = 'Invalid section data provided';
+            }
+          } else if (error.response?.status === 403) {
+            errorMessage = 'You do not have permission to create sections';
+          } else if (error.response?.status === 500) {
+            errorMessage = 'Server error occurred while creating section';
+          }
           
           // Fallback: Create mock section locally
           const { sections } = get();
@@ -168,7 +201,8 @@ const useHomepageSectionStore = create(
             ...sectionData,
             display_order: sections.length + 1,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            enabled: sectionData.enabled !== undefined ? sectionData.enabled : true
           };
           
           set({ 
@@ -177,8 +211,9 @@ const useHomepageSectionStore = create(
             error: 'Created locally - changes not saved to server'
           });
           
+          toast.error(errorMessage);
           toast.success('Section created locally (demo mode)');
-          return mockSection;
+          return { success: false, error: errorMessage, data: mockSection };
         }
       },
 
@@ -227,6 +262,20 @@ const useHomepageSectionStore = create(
       deleteSection: async (sectionId) => {
         set({ loading: true, error: null });
         try {
+          // Check if it's a mock section (starts with 'mock-')
+          if (sectionId.startsWith('mock-')) {
+            // Delete mock section locally only
+            const { sections } = get();
+            const updatedSections = sections.filter(section => section.section_id !== sectionId);
+            set({ 
+              sections: updatedSections,
+              loading: false 
+            });
+            toast.success('Section deleted locally (demo mode)');
+            return true;
+          }
+
+          // For real sections, try to delete from server
           const response = await adminApi.delete(`/admin/homepage/sections/${sectionId}/delete/`);
           
           if (response.status === 200) {
@@ -242,7 +291,7 @@ const useHomepageSectionStore = create(
         } catch (error) {
           console.error('Error deleting homepage section:', error);
           
-          // Fallback: Delete mock section locally
+          // Fallback: Delete section locally
           const { sections } = get();
           const updatedSections = sections.filter(section => section.section_id !== sectionId);
           
@@ -252,8 +301,8 @@ const useHomepageSectionStore = create(
             error: 'Deleted locally - changes not saved to server'
           });
           
-          toast.success('Section deleted locally (demo mode)');
-          return true;
+          toast.error('Failed to delete from server, removed locally');
+          return false;
         }
       },
 
@@ -279,21 +328,34 @@ const useHomepageSectionStore = create(
           const response = await adminApi.post(`/admin/homepage/sections/${sectionId}/toggle/`);
           
           if (response.status === 200) {
-            const updatedSection = response.data.section;
+            // Backend returns { message, section_id, enabled } not full section
+            const responseData = response.data;
+            const newEnabledStatus = responseData.enabled;
+            
+            // Update the existing section with new enabled status
             const updatedSections = sections.map(section => 
-              section && section.section_id === sectionId ? updatedSection : section
-            ).filter(Boolean); // Remove any null/undefined sections
+              section && section.section_id === sectionId 
+                ? { 
+                    ...section, 
+                    enabled: newEnabledStatus,
+                    updated_at: new Date().toISOString() 
+                  }
+                : section
+            ).filter(Boolean);
+            
             set({ 
               sections: updatedSections,
               loading: false 
             });
+            
+            const updatedSection = updatedSections.find(s => s.section_id === sectionId);
             toast.success(`Section ${updatedSection.enabled ? 'enabled' : 'disabled'} successfully`);
             return updatedSection;
           }
         } catch (error) {
           console.error('Error toggling homepage section:', error);
           
-          // Fallback: Toggle mock section locally with validation
+          // Enhanced fallback: Toggle mock section locally with validation
           const { sections } = get();
           const existingSection = sections.find(s => s && s.section_id === sectionId);
           
@@ -306,17 +368,16 @@ const useHomepageSectionStore = create(
             throw error;
           }
 
-          // Ensure enabled property exists
-          if (typeof existingSection.enabled === 'undefined') {
-            existingSection.enabled = true;
-          }
-
-          // Ensure enabled property exists
-          const currentEnabled = existingSection.enabled || false;
+          // Ensure enabled property exists with safe checking
+          const currentEnabled = existingSection.enabled !== undefined ? existingSection.enabled : true;
           
           const fallbackUpdatedSections = sections.map(section => 
             section && section.section_id === sectionId 
-              ? { ...section, enabled: !currentEnabled, updated_at: new Date().toISOString() }
+              ? { 
+                  ...section, 
+                  enabled: !currentEnabled, 
+                  updated_at: new Date().toISOString() 
+                }
               : section
           ).filter(Boolean); // Remove any null/undefined sections
           

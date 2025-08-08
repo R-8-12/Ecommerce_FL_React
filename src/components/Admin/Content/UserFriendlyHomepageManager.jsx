@@ -45,20 +45,13 @@ import ConfirmModal from '../../ui/ConfirmModal';
 import useHomepageSectionStore from '../../../store/Admin/useHomepageSectionStore';
 import toast from 'react-hot-toast';
 
-// Enhanced section types with icons and descriptions
+// Enhanced section types with icons and descriptions (matching backend exactly)
 const ENHANCED_SECTION_TYPES = [
   { 
-    type: 'hero_section', 
-    label: 'Hero Section', 
-    icon: <FiLayout />, 
-    description: 'Main banner with CTA',
-    category: 'promotional'
-  },
-  { 
     type: 'banners', 
-    label: 'Banner Carousel', 
+    label: 'Banners Section', 
     icon: <FiImage />, 
-    description: 'Slideshow banners',
+    description: 'Main banner carousel',
     category: 'promotional'
   },
   { 
@@ -77,9 +70,9 @@ const ENHANCED_SECTION_TYPES = [
   },
   { 
     type: 'categories', 
-    label: 'Product Categories', 
+    label: 'Categories Section', 
     icon: <FiGrid />, 
-    description: 'Category navigation',
+    description: 'Product categories display',
     category: 'navigation'
   },
   { 
@@ -93,14 +86,14 @@ const ENHANCED_SECTION_TYPES = [
     type: 'clearance_sales', 
     label: 'Clearance Sales', 
     icon: <FiDatabase />, 
-    description: 'Discounted items',
+    description: 'Clearance items section',
     category: 'deals'
   },
   { 
     type: 'channel', 
-    label: 'Video Channel', 
+    label: 'Channel Section', 
     icon: <FiTv />, 
-    description: 'Video content section',
+    description: 'Video/media channel',
     category: 'media'
   },
   { 
@@ -121,64 +114,55 @@ const ENHANCED_SECTION_TYPES = [
     type: 'section_banners', 
     label: 'Section Banners', 
     icon: <FiImage />, 
-    description: 'Promotional banners',
+    description: 'Additional banner sections',
     category: 'promotional'
   },
   { 
     type: 'brands', 
-    label: 'Brand Showcase', 
-    icon: <FiType />, 
-    description: 'Featured brands',
-    category: 'brands'
+    label: 'Brands Section', 
+    icon: <FiShoppingBag />, 
+    description: 'Featured brands display',
+    category: 'products'
   },
   { 
     type: 'phones_and_gadgets', 
-    label: 'Phones & Gadgets', 
+    label: 'Phones and Gadgets', 
     icon: <FiSmartphone />, 
-    description: 'Tech products',
+    description: 'Mobile devices section',
     category: 'products'
   },
   { 
     type: 'electronic_gadgets', 
     label: 'Electronic Gadgets', 
-    icon: <FiPlay />, 
-    description: 'Electronic items',
+    icon: <FiTv />, 
+    description: 'Electronics showcase',
     category: 'products'
   },
   { 
-    type: 'blog_section', 
-    label: 'Blog Section', 
+    type: 'footer_section', 
+    label: 'Footer Section', 
     icon: <FiFileText />, 
-    description: 'Latest blog posts',
-    category: 'content'
-  },
-  { 
-    type: 'custom_content', 
-    label: 'Custom Content', 
-    icon: <FiPenTool />, 
-    description: 'User-defined content',
-    category: 'custom'
+    description: 'Footer content area',
+    category: 'layout'
   }
 ];
 
-// Design templates for each section type
+// Design templates for each section type (matching backend exactly)
 const DESIGN_TEMPLATES = {
-  hero_section: ['modern', 'classic', 'minimal', 'fullscreen'],
-  banners: ['slideshow', 'carousel', 'grid', 'stacked'],
-  flash_deal: ['countdown', 'badge', 'card', 'banner'],
-  featured_products: ['grid', 'carousel', 'list', 'cards'],
-  categories: ['grid', 'circular', 'square', 'tiles'],
-  featured_deal: ['banner', 'card', 'popup', 'strip'],
-  clearance_sales: ['grid', 'carousel', 'list', 'masonry'],
-  channel: ['video', 'playlist', 'grid', 'featured'],
-  deal_of_the_day: ['card', 'banner', 'countdown', 'spotlight'],
-  new_arrivals: ['carousel', 'grid', 'slider', 'showcase'],
-  section_banners: ['horizontal', 'vertical', 'grid', 'mosaic'],
-  brands: ['carousel', 'grid', 'slider', 'showcase'],
-  phones_and_gadgets: ['grid', 'categories', 'featured', 'comparison'],
-  electronic_gadgets: ['categories', 'grid', 'showcase', 'deals'],
-  blog_section: ['grid', 'list', 'carousel', 'featured'],
-  custom_content: ['freeform', 'structured', 'template', 'builder']
+  banners: ['hero', 'carousel', 'grid', 'slideshow'],
+  flash_deal: ['countdown', 'grid', 'carousel', 'minimal'],
+  featured_products: ['grid', 'carousel', 'list', 'slider'],
+  categories: ['grid', 'carousel', 'list', 'cards'],
+  featured_deal: ['banner', 'card', 'popup', 'inline'],
+  clearance_sales: ['grid', 'carousel', 'countdown', 'list'],
+  channel: ['video', 'banner', 'grid', 'slider'],
+  deal_of_the_day: ['card', 'banner', 'countdown', 'featured'],
+  new_arrivals: ['grid', 'carousel', 'list', 'featured'],
+  section_banners: ['horizontal', 'vertical', 'grid', 'stacked'],
+  brands: ['grid', 'carousel', 'slider', 'masonry'],
+  phones_and_gadgets: ['grid', 'carousel', 'categories', 'featured'],
+  electronic_gadgets: ['grid', 'carousel', 'list', 'categories'],
+  footer_section: ['detailed', 'minimal', 'corporate', 'modern']
 };
 
 // Sortable item component
@@ -444,8 +428,13 @@ const UserFriendlyHomepageManager = () => {
   // Add section with enhanced validation
   const handleAddSection = async () => {
     try {
-      if (!newSection.section_type || !newSection.title.trim()) {
-        toast.error('Section type and title are required');
+      if (!newSection.section_type) {
+        toast.error('Please select a section type first');
+        return;
+      }
+      
+      if (!newSection.title.trim()) {
+        toast.error('Please enter a section title');
         return;
       }
 
@@ -455,10 +444,22 @@ const UserFriendlyHomepageManager = () => {
         title: newSection.title.trim()
       };
 
-      await addSection(sectionData);
-      setShowAddForm(false);
-      resetNewSectionForm();
-      toast.success('Section added successfully');
+      console.log('Creating section with data:', sectionData);
+
+      const result = await addSection(sectionData);
+      
+      // Handle both success and fallback scenarios
+      if (result.success || result.data) {
+        setShowAddForm(false);
+        resetNewSectionForm();
+        if (result.success) {
+          toast.success('Section added successfully');
+        }
+        // Note: If not success but has data, it means created locally (demo mode)
+        // The store already shows appropriate toast message
+      } else {
+        toast.error(result.error || 'Failed to add section');
+      }
     } catch (error) {
       console.error('Error adding section:', error);
       toast.error('Failed to add section');
@@ -534,9 +535,10 @@ const UserFriendlyHomepageManager = () => {
       // Will implement blog management
       window.open('/admin/content/blogs', '_blank');
     } else {
-      // Generic content management
-      toast.info(`Content management for ${section.section_type} - Feature coming soon!`, {
+      // Generic content management - use toast() instead of toast.info()
+      toast(`Content management for ${section.section_type} - Feature coming soon!`, {
         duration: 3000,
+        icon: 'ℹ️',
       });
     }
   };
@@ -729,21 +731,25 @@ const UserFriendlyHomepageManager = () => {
               {/* Section Type Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Section Type
+                  Section Type <span className="text-red-500">*</span>
+                  {!newSection.section_type && (
+                    <span className="text-red-500 text-xs ml-2">(Please select a section type)</span>
+                  )}
                 </label>
-                <div className="grid grid-cols-2 gap-3 max-h-40 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3 max-h-40 overflow-y-auto border-2 border-dashed border-gray-200 p-3 rounded-lg">
                   {ENHANCED_SECTION_TYPES.map((type) => (
                     <button
                       key={type.type}
                       onClick={() => setNewSection(prev => ({ 
                         ...prev, 
                         section_type: type.type,
-                        category: type.category
+                        category: type.category,
+                        design_template: 'default' // Reset template when section type changes
                       }))}
                       className={`p-3 border rounded-lg text-left transition-all ${
                         newSection.section_type === type.type
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-md'
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
                       }`}
                     >
                       <div className="flex items-center space-x-2">
@@ -762,7 +768,7 @@ const UserFriendlyHomepageManager = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Section Title
+                    Section Title <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -783,7 +789,7 @@ const UserFriendlyHomepageManager = () => {
                     className="w-full p-3 border border-gray-300 rounded-md"
                   >
                     <option value="default">Default</option>
-                    {DESIGN_TEMPLATES[newSection.section_type]?.map(template => (
+                    {newSection.section_type && DESIGN_TEMPLATES[newSection.section_type]?.map(template => (
                       <option key={template} value={template}>
                         {template.charAt(0).toUpperCase() + template.slice(1)}
                       </option>
