@@ -1,17 +1,20 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ReviewList from "../../components/Reviews/ReviewList";
-// Removed ReviewForm import as reviews are now written from order history
+import ReviewForm from "./ReviewForm";
 import useReviewStore from "../../store/useReviewStore";
 import { useAuthStore } from "../../store/useAuth";
 import { useProductStore } from "../../store/useProduct";
 import { toast } from "../../utils/toast";
 import ConfirmModal from "../ui/ConfirmModal";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
+import Button from "../ui/Button";
+import { FiEdit3, FiUpload } from "react-icons/fi";
 
 const ProductReviews = ({ productId, product }) => {
   const { reviews, productReviews, addReview, fetchReviews } = useReviewStore();
   const { user } = useAuthStore();
   const { markReviewHelpful, reportReview } = useProductStore();
+  const [showReviewForm, setShowReviewForm] = useState(false);
   const {
     isOpen: confirmOpen,
     modalConfig,
@@ -27,10 +30,8 @@ const ProductReviews = ({ productId, product }) => {
       fetchReviews();
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  
-  // Reviews are now written from order history, so no form needed here
 
-  // Handle adding a new review (for the existing local review system)
+  // Handle adding a new review
   const handleAddReview = (reviewData) => {
     addReview({
       productId,
@@ -39,13 +40,19 @@ const ProductReviews = ({ productId, product }) => {
       userEmail: user?.email || "anonymous@example.com",
       ...reviewData,
     });
-  }; // Check if user can add a review (now only through order history)
-  const canAddReview = false; // Disabled - reviews now written from order history
+    setShowReviewForm(false);
+  };
+
+  // Check if user can add a review - now enabled for all authenticated users
+  const canAddReview = !!user;
+  
   // Use API reviews data if available, otherwise fall back to local reviews
   const displayReviews =
     product.reviewsData && product.reviewsData.length > 0
       ? product.reviewsData
-      : productReviews[productId] || []; // Handle marking review as helpful
+      : productReviews[productId] || [];
+
+  // Handle marking review as helpful
   const handleMarkHelpful = async (reviewId) => {
     if (!user) {
       toast.warning("Please log in to mark reviews as helpful");
@@ -77,7 +84,9 @@ const ProductReviews = ({ productId, product }) => {
       console.error("Error marking review as helpful:", error);
       toast.error("Failed to mark review as helpful");
     }
-  }; // Handle reporting review
+  };
+
+  // Handle reporting review
   const handleReportReview = async (reviewId) => {
     if (!user) {
       toast.warning("Please log in to report reviews");
@@ -116,27 +125,52 @@ const ProductReviews = ({ productId, product }) => {
       },
     });
   };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h2
-        className="text-2xl font-bold mb-6"
-        style={{ color: "var(--text-primary)" }}
-      >
-        Customer Reviews
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2
+          className="text-2xl font-bold"
+          style={{ color: "var(--text-primary)" }}
+        >
+          Customer Reviews
+        </h2>
+        
+        {canAddReview && (
+          <Button
+            variant={showReviewForm ? "secondary" : "primary"}
+            size="sm"
+            icon={showReviewForm ? <FiUpload size={16} /> : <FiEdit3 size={16} />}
+            onClick={() => setShowReviewForm(!showReviewForm)}
+          >
+            {showReviewForm ? "Close Review Form" : "Write Review"}
+          </Button>
+        )}
+      </div>
+
+      {/* Review Form */}
+      {showReviewForm && canAddReview && (
+        <div className="mb-8">
+          <ReviewForm
+            productId={productId}
+            onReviewSubmitted={handleAddReview}
+          />
+        </div>
+      )}
 
       {/* Review List */}
       <ReviewList
         productId={productId}
         reviews={displayReviews}
         onAddReview={handleAddReview}
-        canAddReview={canAddReview}
+        canAddReview={false} // Disable inline form since we have dedicated form above
         showFilters={true}
         onMarkHelpful={handleMarkHelpful}
         onReportReview={handleReportReview}
         currentUser={user}
         isAuthenticated={!!user}
       />
+      
       {/* Confirm Modal */}
       <ConfirmModal
         isOpen={confirmOpen}

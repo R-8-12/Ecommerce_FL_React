@@ -71,6 +71,43 @@ export const useAdminStore = create((set, get) => {
       return useOptimizedAdminStore.getState().fetchProducts(page, false);
     },
     
+    // USER MANAGEMENT METHODS
+    updateUserStatus: async (userId) => {
+      try {
+        // Use the ban_user API endpoint to toggle user ban status
+        const response = await adminApi.patch(`/admin/users/ban/${userId}/`);
+
+        if (response.data.message) {
+          // Update the optimized store with the new user status
+          const optimizedStore = useOptimizedAdminStore.getState();
+          const currentUsers = optimizedStore.users.list;
+          
+          const updatedList = currentUsers.map((user) =>
+            user.id === userId
+              ? {
+                  ...user,
+                  is_banned: response.data.is_banned,
+                  status: response.data.is_banned ? "banned" : "active",
+                }
+              : user
+          );
+
+          // Update the optimized store directly
+          useOptimizedAdminStore.setState({
+            users: {
+              ...optimizedStore.users,
+              list: updatedList,
+            }
+          });
+        }
+        
+        return response.data;
+      } catch (error) {
+        console.error("Error updating user status:", error);
+        throw error;
+      }
+    },
+    
     // DELIVERY PARTNERS METHODS
     fetchDeliveryPartners: async () => {
       set((state) => ({

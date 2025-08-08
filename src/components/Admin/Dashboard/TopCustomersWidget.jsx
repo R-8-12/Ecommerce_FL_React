@@ -103,19 +103,21 @@ const TopCustomersWidget = ({ customers = [] }) => {
             </div>
             
             {/* Customer Basic Info */}
-            <div>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center space-x-2">
                 <h4 
-                  className="font-semibold text-sm"
+                  className="font-semibold text-sm truncate max-w-[120px]"
                   style={{ color: 'var(--text-primary)' }}
+                  title={customer.name || 'Unknown Customer'}
                 >
                   {customer.name || 'Unknown Customer'}
                 </h4>
-                {isVIP && <FiStar className="text-yellow-500" size={14} />}
+                {isVIP && <FiStar className="text-yellow-500 flex-shrink-0" size={14} />}
               </div>
               <p 
-                className="text-xs"
+                className="text-xs truncate max-w-[140px]"
                 style={{ color: 'var(--text-secondary)' }}
+                title={customer.email || 'No email'}
               >
                 {customer.email || 'No email'}
               </p>
@@ -124,14 +126,14 @@ const TopCustomersWidget = ({ customers = [] }) => {
 
           {/* Loyalty Badge */}
           <div 
-            className="px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1"
+            className="px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 flex-shrink-0"
             style={{ 
               backgroundColor: loyaltyBadge.bg,
               color: loyaltyBadge.text
             }}
           >
             <span>{loyaltyBadge.icon}</span>
-            <span>{customer.loyaltyLevel || customer.loyalty_level || 'Bronze'}</span>
+            <span className="hidden sm:block">{customer.loyaltyLevel || customer.loyalty_level || 'Bronze'}</span>
           </div>
         </div>
 
@@ -175,15 +177,16 @@ const TopCustomersWidget = ({ customers = [] }) => {
               className="font-medium"
               style={{ color: 'var(--text-primary)' }}
             >
-              ₹{(customer.averageOrderValue || customer.average_order_value || 0).toFixed(2)}
+              ₹{(customer.averageOrderValue || customer.average_order_value || 0).toFixed(0)}
             </span>
           </div>
           
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: 'var(--text-secondary)' }}>Last Order</span>
             <span 
-              className="font-medium"
+              className="font-medium truncate max-w-[80px]"
               style={{ color: 'var(--text-primary)' }}
+              title={formatTimeAgo(customer.lastOrderDate || customer.last_order_date || new Date())}
             >
               {formatTimeAgo(customer.lastOrderDate || customer.last_order_date || new Date())}
             </span>
@@ -192,8 +195,9 @@ const TopCustomersWidget = ({ customers = [] }) => {
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: 'var(--text-secondary)' }}>Customer Since</span>
             <span 
-              className="font-medium"
+              className="font-medium truncate max-w-[80px]"
               style={{ color: 'var(--text-primary)' }}
+              title={formatTimeAgo(customer.signupDate)}
             >
               {formatTimeAgo(customer.signupDate)}
             </span>
@@ -202,8 +206,9 @@ const TopCustomersWidget = ({ customers = [] }) => {
           <div className="flex items-center justify-between text-xs">
             <span style={{ color: 'var(--text-secondary)' }}>Favorite Category</span>
             <span 
-              className="font-medium"
+              className="font-medium truncate max-w-[80px]"
               style={{ color: 'var(--brand-primary)' }}
+              title={customer.favoriteCategory}
             >
               {customer.favoriteCategory}
             </span>
@@ -286,7 +291,7 @@ const TopCustomersWidget = ({ customers = [] }) => {
       </div>
 
       {/* Customers List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {customers && customers.length > 0 ? displayCustomers.map((customer, index) => (
           <CustomerCard key={customer.id || customer.customer_id || customer.user_id || index} customer={customer} index={index} />
         )) : (

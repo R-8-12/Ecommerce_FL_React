@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import toast from "react-hot-toast";
-import { FiStar } from "react-icons/fi";
+import { FiStar, FiUpload, FiX, FiImage, FiVideo, FiTrash2 } from "react-icons/fi";
 import { useProductStore } from "../../store/useProduct";
 import { useAuthStore } from "../../store/useAuth";
 import { awardCoins } from '../../utils/gamificationUtils';
+import Button from "../ui/Button";
 
 const ReviewForm = ({ productId, onReviewSubmitted }) => {
   const [rating, setRating] = useState(0);
+  const [title, setTitle] = useState("");
   const [comment, setComment] = useState("");
   const [hoveredRating, setHoveredRating] = useState(0);
 
@@ -26,10 +28,18 @@ const ReviewForm = ({ productId, onReviewSubmitted }) => {
       return;
     }
 
+    if (!title.trim()) {
+      toast.error("Please enter a review title");
+      return;
+    }
+
     clearReviewError();
 
+    // For now, we'll send the basic review data that the backend expects
+    // Media upload functionality can be added later when backend supports it
     const reviewData = {
       rating: rating,
+      title: title.trim(),
       comment: comment.trim(),
     };
 
@@ -39,6 +49,7 @@ const ReviewForm = ({ productId, onReviewSubmitted }) => {
 
       // Reset form
       setRating(0);
+      setTitle("");
       setComment("");
 
       // Call parent callback if provided
@@ -65,79 +76,189 @@ const ReviewForm = ({ productId, onReviewSubmitted }) => {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg border">
-      <h3 className="text-lg font-semibold mb-4">Write a Review</h3>
+    <div 
+      className="p-6 rounded-lg border-2"
+      style={{
+        backgroundColor: 'var(--bg-primary)',
+        borderColor: 'var(--border-primary)',
+        borderRadius: 'var(--rounded-lg)',
+        boxShadow: 'var(--shadow-medium)'
+      }}
+    >
+      <form onSubmit={handleSubmit}>
+        <h3 
+          className="text-xl font-semibold mb-6 flex items-center"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          <FiStar className="mr-2" style={{ color: 'var(--brand-primary)' }} />
+          Write a Review
+        </h3>
 
-      {reviewError && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded mb-4">
-          {reviewError}
-        </div>
-      )}
-
-      {/* Rating Selection */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Rating *
-        </label>
-        <div className="flex space-x-1">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <button
-              key={star}
-              type="button"
-              className="focus:outline-none"
-              onMouseEnter={() => setHoveredRating(star)}
-              onMouseLeave={() => setHoveredRating(0)}
-              onClick={() => setRating(star)}
-            >
-              <FiStar
-                className={`w-6 h-6 ${
-                  star <= (hoveredRating || rating)
-                    ? "fill-yellow-400 text-yellow-400"
-                    : "text-gray-300"
-                }`}
-              />
-            </button>
-          ))}
-        </div>
-        {rating > 0 && (
-          <p className="text-sm text-gray-600 mt-1">{rating} out of 5 stars</p>
-        )}
-      </div>
-
-      {/* Comment */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Your Review
-        </label>
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Share your thoughts about this product..."
-          rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-          maxLength={1000}
-        />
-        <p className="text-sm text-gray-500 mt-1">
-          {comment.length}/1000 characters
-        </p>
-      </div>
-
-      {/* Submit Button */}
-      <button
-        type="submit"
-        disabled={reviewLoading || rating === 0}
-        className="w-full bg-brand-primary text-white py-2 px-4 rounded-md hover:bg-brand-primary-hover focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {reviewLoading ? (
-          <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-            Submitting...
+        {reviewError && (
+          <div 
+            className="border px-4 py-3 rounded mb-4"
+            style={{
+              backgroundColor: 'var(--error-bg)',
+              borderColor: 'var(--error-border)',
+              color: 'var(--error-text)'
+            }}
+          >
+            {reviewError}
           </div>
-        ) : (
-          "Submit Review"
         )}
-      </button>
-    </form>
+
+        {/* Rating Selection */}
+        <div className="mb-6">
+          <label 
+            className="block text-sm font-medium mb-3"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Rating *
+          </label>
+          <div className="flex space-x-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <button
+                key={star}
+                type="button"
+                className="focus:outline-none transition-transform hover:scale-110"
+                onMouseEnter={() => setHoveredRating(star)}
+                onMouseLeave={() => setHoveredRating(0)}
+                onClick={() => setRating(star)}
+              >
+                <FiStar
+                  className={`w-8 h-8 transition-colors ${
+                    star <= (hoveredRating || rating)
+                      ? "fill-yellow-400 text-yellow-400"
+                      : "text-gray-300"
+                  }`}
+                />
+              </button>
+            ))}
+          </div>
+          {rating > 0 && (
+            <p 
+              className="text-sm mt-2"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              {rating} out of 5 stars
+            </p>
+          )}
+        </div>
+
+        {/* Review Title */}
+        <div className="mb-6">
+          <label 
+            className="block text-sm font-medium mb-3"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Review Title *
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Summarize your review in a few words..."
+            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
+            style={{
+              borderColor: 'var(--border-primary)',
+              backgroundColor: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              focusRingColor: 'var(--brand-primary)'
+            }}
+            maxLength={100}
+          />
+          <p 
+            className="text-sm mt-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {title.length}/100 characters
+          </p>
+        </div>
+
+        {/* Comment */}
+        <div className="mb-6">
+          <label 
+            className="block text-sm font-medium mb-3"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Your Review
+          </label>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Share your detailed thoughts about this product..."
+            rows={4}
+            className="w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-all"
+            style={{
+              borderColor: 'var(--border-primary)',
+              backgroundColor: 'var(--bg-primary)',
+              color: 'var(--text-primary)',
+              focusRingColor: 'var(--brand-primary)'
+            }}
+            maxLength={1000}
+          />
+          <p 
+            className="text-sm mt-2"
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            {comment.length}/1000 characters
+          </p>
+        </div>
+
+        {/* Media Upload Notice */}
+        <div className="mb-6">
+          <div 
+            className="border-2 border-dashed rounded-lg p-6 text-center"
+            style={{ 
+              borderColor: 'var(--border-primary)',
+              backgroundColor: 'var(--bg-secondary)',
+              opacity: 0.6
+            }}
+          >
+            <FiImage className="mx-auto mb-2 text-3xl" style={{ color: 'var(--text-secondary)' }} />
+            <p 
+              className="mb-2 text-sm"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              🚧 <strong>Media Upload Coming Soon!</strong>
+            </p>
+            <p 
+              className="text-xs"
+              style={{ color: 'var(--text-secondary)' }}
+            >
+              Image and video upload functionality will be available in a future update.
+            </p>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex justify-end space-x-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            icon={<FiTrash2 size={16} />}
+            onClick={() => {
+              setRating(0);
+              setTitle("");
+              setComment("");
+            }}
+          >
+            Clear Form
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            size="md"
+            isLoading={reviewLoading}
+            disabled={reviewLoading || rating === 0 || !title.trim()}
+            icon={<FiUpload size={16} />}
+          >
+            {reviewLoading ? "Submitting..." : "Submit Review"}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 };
 
