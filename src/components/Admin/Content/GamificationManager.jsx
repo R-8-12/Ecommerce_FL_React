@@ -167,6 +167,11 @@ const GamificationManager = () => {
   };
 
   const deleteSpinWheelReward = (id) => {
+    if (settings.spinWheel.rewards.length <= 3) {
+      toast.error('Minimum 3 rewards required for spin wheel');
+      return;
+    }
+    
     setSettings(prev => ({
       ...prev,
       spinWheel: {
@@ -174,6 +179,25 @@ const GamificationManager = () => {
         rewards: prev.spinWheel.rewards.filter(r => r.id !== id)
       }
     }));
+  };
+
+  const handleSaveReward = (rewardData) => {
+    if (editingReward) {
+      // Update existing reward
+      _updateSpinWheelReward(editingReward.id, rewardData);
+      toast.success('Reward updated successfully');
+    } else {
+      // Add new reward
+      if (settings.spinWheel.rewards.length >= 8) {
+        toast.error('Maximum 8 rewards allowed for optimal spin wheel display');
+        return;
+      }
+      _addSpinWheelReward(rewardData);
+      toast.success('Reward added successfully');
+    }
+    
+    setRewardModalOpen(false);
+    setEditingReward(null);
   };
 
   const renderRewardsTab = () => (
@@ -551,14 +575,152 @@ const GamificationManager = () => {
         onClose={() => setRewardModalOpen(false)}
         title={editingReward ? 'Edit Reward' : 'Add New Reward'}
       >
-        {/* Reward form content would go here */}
-        <div className="p-4">
-          <p style={{ color: 'var(--text-secondary)' }}>
-            Reward editing form would be implemented here
-          </p>
-        </div>
+        <RewardFormModal
+          reward={editingReward}
+          onSave={handleSaveReward}
+          onCancel={() => setRewardModalOpen(false)}
+        />
       </Modal>
     </div>
+  );
+};
+
+// Reward Form Modal Component
+const RewardFormModal = ({ reward, onSave, onCancel }) => {
+  const [formData, setFormData] = useState({
+    type: reward?.type || 'coins',
+    value: reward?.value || 0,
+    label: reward?.label || '',
+    weight: reward?.weight || 10,
+  });
+
+  const [errors, setErrors] = useState({});
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.label.trim()) {
+      newErrors.label = 'Label is required';
+    }
+    
+    if (formData.value <= 0) {
+      newErrors.value = 'Value must be greater than 0';
+    }
+    
+    if (formData.weight < 1 || formData.weight > 50) {
+      newErrors.weight = 'Weight must be between 1 and 50';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (validateForm()) {
+      onSave(formData);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          Reward Type
+        </label>
+        <select
+          value={formData.type}
+          onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+          className="w-full px-3 py-2 rounded-md border"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)',
+            color: 'var(--text-primary)'
+          }}
+        >
+          <option value="coins">Coins</option>
+          <option value="discount">Discount %</option>
+          <option value="free_shipping">Free Shipping</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          Value {formData.type === 'discount' ? '(%)' : formData.type === 'coins' ? '(amount)' : ''}
+        </label>
+        <input
+          type="number"
+          value={formData.value}
+          onChange={(e) => setFormData(prev => ({ ...prev, value: parseInt(e.target.value) || 0 }))}
+          className="w-full px-3 py-2 rounded-md border"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)',
+            color: 'var(--text-primary)'
+          }}
+          disabled={formData.type === 'free_shipping'}
+        />
+        {errors.value && <p className="text-red-500 text-sm mt-1">{errors.value}</p>}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          Display Label
+        </label>
+        <input
+          type="text"
+          value={formData.label}
+          onChange={(e) => setFormData(prev => ({ ...prev, label: e.target.value }))}
+          className="w-full px-3 py-2 rounded-md border"
+          placeholder="e.g., 10 Coins, 5% Off, Free Shipping"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)',
+            color: 'var(--text-primary)'
+          }}
+        />
+        {errors.label && <p className="text-red-500 text-sm mt-1">{errors.label}</p>}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          Weight (Probability %)
+        </label>
+        <input
+          type="number"
+          value={formData.weight}
+          onChange={(e) => setFormData(prev => ({ ...prev, weight: parseInt(e.target.value) || 1 }))}
+          min="1"
+          max="50"
+          className="w-full px-3 py-2 rounded-md border"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)',
+            color: 'var(--text-primary)'
+          }}
+        />
+        {errors.weight && <p className="text-red-500 text-sm mt-1">{errors.weight}</p>}
+        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+          Higher weight = more likely to appear
+        </p>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4">
+        <Button
+          type="button"
+          onClick={onCancel}
+          variant="secondary"
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+        >
+          {reward ? 'Update' : 'Add'} Reward
+        </Button>
+      </div>
+    </form>
   );
 };
 

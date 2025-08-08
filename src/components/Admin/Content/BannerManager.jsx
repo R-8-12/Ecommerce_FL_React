@@ -532,26 +532,53 @@ const BannerManager = ({ positionOptions }) => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Image Upload
               </label>
-              <input
-                type="file"
-                accept="image/*"
-                className="w-full p-2 border border-gray-300 rounded-md"
-                onChange={handleEditBannerImageChange}
-              />
-              {editBannerImagePreview && (
-                <div className="mt-2">
-                  <img
-                    src={editBannerImagePreview}
-                    alt="Current/Preview"
-                    className="h-24 w-48 object-cover rounded border"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    {editBannerImageFile
-                      ? "New image preview"
-                      : "Current image"}
-                  </p>
-                </div>
-              )}
+              
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => openImageCropper('edit')}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 rounded-md hover:border-gray-400 transition-colors text-center"
+                >
+                  <div className="flex flex-col items-center space-y-2">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span className="text-sm text-gray-600">
+                      {editBannerImagePreview ? 'Change Image (with cropping)' : 'Upload & Crop Image'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      Click to upload and automatically crop to {getCropPresets(editingBanner.position).recommendedSize}
+                    </span>
+                  </div>
+                </button>
+                {editBannerImagePreview && (
+                  <div className="mt-2">
+                    <img
+                      src={editBannerImagePreview}
+                      alt="Current/Preview"
+                      className="h-24 w-48 object-cover rounded border"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      {editBannerImageFile
+                        ? "New image preview"
+                        : "Current image"}
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Fallback file input */}
+              <div className="mt-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                  onChange={handleEditBannerImageChange}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Alternative: Upload directly without cropping
+                </p>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

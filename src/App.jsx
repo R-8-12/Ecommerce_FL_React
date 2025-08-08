@@ -75,7 +75,7 @@ import AdminSellPhone from "./pages/Admin/AdminSellPhone";
 import FirebaseOptimizationTest from "./components/FirebaseOptimizationTest";
 import FirebaseOptimizationMonitor from "./components/FirebaseOptimizationMonitor";
 import FirebaseSetup from "./components/FirebaseSetup";
-import AdminAuthDebugger from "./components/AdminAuthDebugger";
+
 import ErrorBoundary from "./components/ErrorBoundary";
 import Page404 from "./pages/Page404";
 import GamificationIntegration from "./components/gamification/GamificationIntegration";
@@ -341,10 +341,6 @@ const App = () => {
               element={<FirebaseOptimizationMonitor />}
             />
             <Route
-              path="/admin/auth-debug"
-              element={<AdminAuthDebugger />}
-            />
-            <Route
               path="/admin/products"
               element={<AdminProducts />}
             />
@@ -385,6 +381,10 @@ const App = () => {
         {/* Catch-all route for 404 Not Found */}
         <Route path="*" element={<Page404 />} />
       </Routes>
+      {/* <AuthDebugPanel /> */}
+      
+      {/* Global Gamification Integration - provides modals for all pages */}
+      <GamificationIntegration />
     </BrowserRouter>
     </SimpleThemeProvider>
     </ErrorBoundary>

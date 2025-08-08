@@ -214,7 +214,7 @@ const DeliveryStatusModal = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/40 transition-opacity"
+        className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 

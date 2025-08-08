@@ -7,9 +7,10 @@
 import React, { useState, useEffect } from 'react';
 // eslint-disable-next-line no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { 
   FiGift, FiTarget, FiUsers, FiStar, FiCalendar,
-  FiTrendingUp, FiClock, FiRefreshCw, FiAward, FiZap, FiShare2
+  FiTrendingUp, FiClock, FiRefreshCw, FiAward, FiZap, FiShare2, FiCopy
 } from 'react-icons/fi';
 import { FaTrophy, FaSpinner, FaMedal, FaCoins } from 'react-icons/fa';
 import useGamificationStore from '../store/useGamificationStore';
@@ -17,9 +18,11 @@ import { useAuthStore } from '../store/useAuth';
 import Button from '../components/ui/Button';
 import SpinWheel from '../components/gamification/SpinWheel';
 import WalletModal from '../components/gamification/WalletModal';
+import toast from 'react-hot-toast';
 
 const GamificationDashboard = () => {
   const { user, isAuthenticated } = useAuthStore();
+  const location = useLocation();
   const {
     // wallet, // Available if needed for future features
     coinBalance,
@@ -30,21 +33,43 @@ const GamificationDashboard = () => {
     fetchWallet,
     fetchGamificationStatus,
     fetchLeaderboard,
+    fetchAchievements,
+    fetchReferralData,
     openSpinWheel,
     openWalletModal,
+    closeSpinWheel,
+    closeWalletModal,
     isSpinWheelOpen,
     isWalletModalOpen
   } = useGamificationStore();
 
   const [activeTab, setActiveTab] = useState('overview');
+  const [referralData, setReferralData] = useState(null);
+
+  // Handle URL parameters
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const tabParam = searchParams.get('tab');
+    
+    if (tabParam && ['overview', 'refer', 'achievements', 'leaderboard'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
       fetchWallet();
       fetchGamificationStatus();
       fetchLeaderboard();
+      fetchAchievements();
+      
+      // Fetch referral data
+      fetchReferralData().then(data => {
+        if (data) setReferralData(data);
+      });
     }
-  }, [isAuthenticated, user, fetchWallet, fetchGamificationStatus, fetchLeaderboard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user]); // Only depend on auth state to prevent infinite loop
 
   // Role-based access control - exclude delivery partners
   if (!isAuthenticated || !user) {
@@ -434,24 +459,139 @@ const GamificationDashboard = () => {
         className="text-xl font-semibold"
         style={{ color: 'var(--text-primary)' }}
       >
-        Available Rewards
+        Rewards & Referrals
       </h3>
       
-      <div 
-        className="p-6 rounded-xl border text-center"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-primary)'
-        }}
-      >
-        <FiGift 
-          size={48} 
-          style={{ color: 'var(--brand-primary)' }} 
-          className="mx-auto mb-4"
-        />
-        <p style={{ color: 'var(--text-secondary)' }}>
-          Rewards system will be implemented here
-        </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Refer & Earn Section */}
+        <div 
+          className="p-6 rounded-xl border"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)'
+          }}
+        >
+          <div className="flex items-center mb-4">
+            <FiUsers size={24} style={{ color: 'var(--brand-primary)' }} className="mr-3" />
+            <h4 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Refer & Earn
+            </h4>
+          </div>
+          
+          {referralData ? (
+            <div className="space-y-4">
+              <div 
+                className="p-4 rounded-lg"
+                style={{ backgroundColor: 'var(--bg-primary)' }}
+              >
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Your Referral Code:</p>
+                <div className="flex items-center justify-between mt-2">
+                  <code 
+                    className="text-lg font-bold px-3 py-1 rounded"
+                    style={{ 
+                      backgroundColor: 'var(--brand-primary)', 
+                      color: 'var(--text-on-brand)' 
+                    }}
+                  >
+                    {referralData.referral_code}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(referralData.referral_code);
+                      toast.success('Referral code copied!');
+                    }}
+                    className="ml-2 p-2 rounded-lg hover:opacity-80 transition-opacity"
+                    style={{ backgroundColor: 'var(--brand-secondary)', color: 'var(--text-on-brand)' }}
+                  >
+                    <FiCopy size={16} />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>
+                    {referralData.total_referrals}
+                  </p>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Referrals
+                  </p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold" style={{ color: 'var(--brand-primary)' }}>
+                    {referralData.total_earned}
+                  </p>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Coins Earned
+                  </p>
+                </div>
+              </div>
+              
+              <div 
+                className="p-3 rounded-lg text-center"
+                style={{ backgroundColor: 'var(--bg-primary)' }}
+              >
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Earn <span style={{ color: 'var(--brand-primary)' }} className="font-bold">
+                    {referralData.reward_per_referral} coins
+                  </span> for each successful referral!
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center">
+              <FaSpinner 
+                className="animate-spin mx-auto mb-2" 
+                size={20}
+                style={{ color: 'var(--brand-primary)' }}
+              />
+              <p style={{ color: 'var(--text-secondary)' }}>Loading referral data...</p>
+            </div>
+          )}
+        </div>
+
+        {/* Daily Rewards Section */}
+        <div 
+          className="p-6 rounded-xl border"
+          style={{
+            backgroundColor: 'var(--bg-secondary)',
+            borderColor: 'var(--border-primary)'
+          }}
+        >
+          <div className="flex items-center mb-4">
+            <FiGift size={24} style={{ color: 'var(--brand-primary)' }} className="mr-3" />
+            <h4 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
+              Daily Rewards
+            </h4>
+          </div>
+          
+          <div className="space-y-4">
+            <div 
+              className="p-4 rounded-lg text-center"
+              style={{ backgroundColor: 'var(--bg-primary)' }}
+            >
+              <FiGift 
+                size={32} 
+                style={{ color: 'var(--brand-primary)' }} 
+                className="mx-auto mb-2"
+              />
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Daily Login: <span style={{ color: 'var(--brand-primary)' }} className="font-bold">+5 coins</span>
+              </p>
+            </div>
+            
+            <button
+              onClick={openSpinWheel}
+              className="w-full p-3 rounded-lg font-semibold transition-all duration-200 hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--brand-primary)',
+                color: 'var(--text-on-brand)'
+              }}
+            >
+              🎰 Daily Spin Wheel
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -549,8 +689,8 @@ const GamificationDashboard = () => {
       </div>
 
       {/* Modals */}
-      {isSpinWheelOpen && <SpinWheel />}
-      {isWalletModalOpen && <WalletModal />}
+      {isSpinWheelOpen && <SpinWheel isOpen={isSpinWheelOpen} onClose={closeSpinWheel} />}
+      {isWalletModalOpen && <WalletModal isOpen={isWalletModalOpen} onClose={closeWalletModal} />}
     </div>
   );
 };

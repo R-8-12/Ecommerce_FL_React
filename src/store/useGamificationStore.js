@@ -10,38 +10,116 @@ import toast from 'react-hot-toast';
 
 const useGamificationStore = create(
     persist(
-        (set, get) => ({
-            // State
-            wallet: null,
-            coinBalance: 0,
-            userLevel: 'Bronze',
-            achievements: [],
-            isLoading: false,
-            error: null,
-            spinStatus: {
-                canSpin: true,
-                spinsLeft: 3,
-                lastSpinDate: null
-            },
-            leaderboard: [],
+        (set, get) => {
+            // Flag to prevent multiple event listener registrations
+            let eventListenersRegistered = false;
             
-            // UI State
-            isWalletModalOpen: false,
-            isSpinWheelOpen: false,
-            gamificationStatus: null,
+            // Set up event listeners for coin awards and login streaks
+            if (typeof window !== 'undefined' && !eventListenersRegistered) {
+                const handleCoinsAwarded = (event) => {
+                    const { amount, total } = event.detail;
+                    const currentStore = get();
+                    set({ 
+                        coinBalance: total || (currentStore.coinBalance + amount)
+                    });
+                    // Only refresh if we have a significant change
+                    if (amount > 0) {
+                        setTimeout(() => currentStore.fetchWallet(), 500);
+                    }
+                };
+
+                const handleRefreshGamification = (event) => {
+                    const { newBalance, bonusAmount, streakCount } = event.detail;
+                    
+                    // Update coin balance immediately
+                    if (newBalance !== undefined) {
+                        set({ coinBalance: newBalance });
+                    }
+                    
+                    // Show toast for login streak bonus
+                    if (bonusAmount && streakCount) {
+                        toast.success(`🔥 ${streakCount} day login streak! +${bonusAmount} coins!`, {
+                            duration: 4000,
+                            icon: '🔥'
+                        });
+                    }
+                    
+                    // Only refresh if there's actually new data
+                    if (newBalance !== undefined || bonusAmount) {
+                        const currentStore = get();
+                        setTimeout(() => {
+                            currentStore.fetchWallet();
+                            currentStore.fetchGamificationStatus();
+                        }, 1000); // Increased delay to prevent rapid calls
+                    }
+                };
+
+                window.addEventListener('coinsAwarded', handleCoinsAwarded);
+                window.addEventListener('refreshGamification', handleRefreshGamification);
+                eventListenersRegistered = true;
+                
+                // Cleanup function (though Zustand doesn't have built-in cleanup)
+                if (window.gamificationCleanup) {
+                    window.gamificationCleanup();
+                }
+                window.gamificationCleanup = () => {
+                    window.removeEventListener('coinsAwarded', handleCoinsAwarded);
+                    window.removeEventListener('refreshGamification', handleRefreshGamification);
+                    eventListenersRegistered = false;
+                };
+            }
+
+            return {
+                // State
+                wallet: null,
+                coinBalance: 0,
+                userLevel: 'Bronze',
+                achievements: [],
+                isLoading: false,
+                error: null,
+                spinStatus: {
+                    canSpin: true,
+                    spinsLeft: 3,
+                    lastSpinDate: null
+                },
+                leaderboard: [],
+                
+                // UI State
+                isWalletModalOpen: false,
+                isSpinWheelOpen: false,
+                gamificationStatus: null,
+
+                // Internal state for debouncing
+                _fetchTimeout: null,
+                _isCurrentlyFetching: false,
 
             // Actions
             fetchWallet: async () => {
-                set({ isLoading: true, error: null });
+                const currentState = get();
+                
+                // Prevent multiple simultaneous fetches
+                if (currentState._isCurrentlyFetching) {
+                    console.log('Wallet fetch already in progress, skipping...');
+                    return;
+                }
+                
+                // Clear any pending fetch timeout
+                if (currentState._fetchTimeout) {
+                    clearTimeout(currentState._fetchTimeout);
+                }
+                
+                set({ isLoading: true, error: null, _isCurrentlyFetching: true });
                 
                 try {
                     const result = await gamificationService.getWallet();
                     
                     if (result.success) {
                         const walletData = result.data;
+                        const newCoinBalance = walletData.wallet?.balance || walletData.coin_balance || 0;
+                        
                         set({
-                            wallet: walletData,
-                            coinBalance: walletData.coin_balance || 0,
+                            wallet: walletData.wallet || walletData,
+                            coinBalance: newCoinBalance,
                             userLevel: walletData.level || 'Bronze',
                             achievements: walletData.achievements || [],
                             spinStatus: {
@@ -49,13 +127,21 @@ const useGamificationStore = create(
                                 spinsLeft: walletData.spins_left || 3,
                                 lastSpinDate: walletData.last_spin_date
                             },
-                            isLoading: false
+                            isLoading: false,
+                            _isCurrentlyFetching: false
+                        });
+                        
+                        console.log('Wallet fetched successfully:', { 
+                            balance: newCoinBalance, 
+                            wallet: walletData 
                         });
                     } else {
-                        set({ error: result.error, isLoading: false });
+                        set({ error: result.error, isLoading: false, _isCurrentlyFetching: false });
+                        console.error('Failed to fetch wallet:', result.error);
                     }
                 } catch (error) {
-                    set({ error: error.message, isLoading: false });
+                    set({ error: error.message, isLoading: false, _isCurrentlyFetching: false });
+                    console.error('Wallet fetch error:', error);
                 }
             },
 
@@ -76,8 +162,8 @@ const useGamificationStore = create(
                             duration: 3000
                         });
                         
-                        // Refresh wallet data
-                        get().fetchWallet();
+                        // Debounced refresh wallet data
+                        get().debouncedFetchWallet();
                         
                         return true;
                     } else {
@@ -91,6 +177,23 @@ const useGamificationStore = create(
                 }
             },
 
+            // Debounced fetch wallet to prevent rapid API calls
+            debouncedFetchWallet: () => {
+                const currentState = get();
+                
+                // Clear existing timeout
+                if (currentState._fetchTimeout) {
+                    clearTimeout(currentState._fetchTimeout);
+                }
+                
+                // Set new timeout
+                const timeoutId = setTimeout(() => {
+                    get().fetchWallet();
+                }, 1000); // 1 second debounce
+                
+                set({ _fetchTimeout: timeoutId });
+            },
+
             spinWheel: async () => {
                 set({ isLoading: true });
                 
@@ -100,43 +203,57 @@ const useGamificationStore = create(
                     if (result.success) {
                         const spinResult = result.data;
                         
-                        // Update coin balance
-                        if (spinResult.reward_type === 'coins') {
+                        // Update coin balance if reward is coins
+                        if (spinResult.reward?.type === 'coins') {
                             const currentBalance = get().coinBalance;
                             set({ 
-                                coinBalance: currentBalance + spinResult.reward_value - spinResult.coins_spent 
+                                coinBalance: currentBalance + spinResult.reward.value 
                             });
+                            
+                            // Debounced refresh wallet data
+                            get().debouncedFetchWallet();
                         }
                         
-                        // Update spin status
-                        set({
-                            spinStatus: {
-                                canSpin: spinResult.can_spin_again,
-                                spinsLeft: spinResult.spins_left,
-                                lastSpinDate: new Date().toISOString()
-                            },
-                            isLoading: false
-                        });
+                        // Update gamification status to reflect spin used
+                        setTimeout(() => get().fetchGamificationStatus(), 1500);
                         
-                        // Show reward toast
-                        const rewardIcon = spinResult.reward_type === 'coins' ? '🪙' : 
-                                         spinResult.reward_type === 'discount' ? '🎟️' : '🎁';
+                        set({ isLoading: false });
                         
-                        toast.success(`🎉 You won: ${spinResult.reward_label}!`, {
+                        // Show reward toast with appropriate icon
+                        const rewardIcon = spinResult.reward?.type === 'coins' ? '🪙' : 
+                                         spinResult.reward?.type === 'discount' ? '🎟️' : 
+                                         spinResult.reward?.type === 'freebie' ? '🚚' : '🎁';
+                        
+                        const rewardMessage = spinResult.reward?.type === 'discount' 
+                            ? `🎉 You won ${spinResult.reward.label}! Check your coupons.`
+                            : `🎉 You won ${spinResult.reward?.label || 'a reward'}!`;
+                        
+                        toast.success(rewardMessage, {
                             icon: rewardIcon,
                             duration: 4000
                         });
                         
-                        return spinResult;
+                        return result;
                     } else {
                         set({ isLoading: false });
-                        toast.error(result.error);
-                        return null;
+                        
+                        // Handle specific error messages
+                        if (result.error && result.error.includes('Daily spin limit')) {
+                            toast.error('Daily spin limit reached. Come back tomorrow! 🌅', {
+                                duration: 4000,
+                                icon: '⏰'
+                            });
+                        } else {
+                            toast.error(result.error || 'Spin failed');
+                        }
+                        
+                        return result;
                     }
                 } catch (error) {
+                    console.error('Spin wheel error:', error);
                     set({ isLoading: false });
                     toast.error('Spin failed');
-                    return null;
+                    return { success: false, error: 'Failed to spin wheel' };
                 }
             },
 
@@ -149,6 +266,31 @@ const useGamificationStore = create(
                     }
                 } catch (err) {
                     console.error('Failed to fetch leaderboard:', err);
+                }
+            },
+
+            fetchAchievements: async () => {
+                try {
+                    const result = await gamificationService.getAchievements();
+                    
+                    if (result.success) {
+                        set({ achievements: result.data.achievements || [] });
+                        return result.data;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch achievements:', err);
+                }
+            },
+
+            fetchReferralData: async () => {
+                try {
+                    const result = await gamificationService.getReferralData();
+                    
+                    if (result.success) {
+                        return result.data;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch referral data:', err);
                 }
             },
 
@@ -226,7 +368,8 @@ const useGamificationStore = create(
                     set({ error: err.message, isLoading: false });
                 }
             }
-        }),
+        };
+        },
         {
             name: 'gamification-store',
             partialize: (state) => ({

@@ -9,7 +9,7 @@ import { API_URL } from '../utils/constants';
 class GamificationService {
     constructor() {
         this.baseURL = `${API_URL}/users`;
-    }   
+    }
 
     // Wallet Management
     async getWallet() {
@@ -50,11 +50,21 @@ class GamificationService {
     async spinWheel() {
         try {
             const response = await api.post('/users/rewards/spin-wheel/');
-            return {
-                success: true,
-                data: response.data
-            };
+            
+            // Validate response structure
+            if (response.data && response.data.reward) {
+                return {
+                    success: true,
+                    data: response.data
+                };
+            } else {
+                return {
+                    success: false,
+                    error: 'Invalid response from spin wheel'
+                };
+            }
         } catch (error) {
+            console.error('Spin wheel API error:', error);
             return {
                 success: false,
                 error: error.response?.data?.error || 'Spin wheel failed'
@@ -90,6 +100,79 @@ class GamificationService {
             return {
                 success: false,
                 error: error.response?.data?.error || 'Failed to fetch leaderboard'
+            };
+        }
+    }
+
+    // Achievements
+    async getAchievements() {
+        try {
+            const response = await api.get('/users/rewards/achievements/');
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error || 'Failed to fetch achievements'
+            };
+        }
+    }
+
+    // Referrals
+    async getReferralData() {
+        try {
+            const response = await api.get('/users/rewards/referrals/');
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error || 'Failed to fetch referral data'
+            };
+        }
+    }
+
+    // Login Streak
+    async checkLoginStreak() {
+        try {
+            const response = await api.post('/users/rewards/login-streak/');
+            return {
+                success: true,
+                data: response.data
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error || 'Failed to check login streak'
+            };
+        }
+    }
+
+    // Award Coins (uses add-coins endpoint)
+    async awardCoins(amount, reason, description = '') {
+        return this.addCoins(amount, reason, description);
+    }
+
+    // Get Spin Status (check if user can spin today)
+    async getSpinStatus() {
+        try {
+            // Use gamification status to check spin availability
+            const response = await api.get('/users/gamification/status/');
+            return {
+                success: true,
+                data: {
+                    can_spin: response.data.daily_spin_available || false,
+                    spins_remaining: response.data.daily_spin_available ? 1 : 0
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.response?.data?.error || 'Failed to get spin status'
             };
         }
     }

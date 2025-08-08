@@ -19,6 +19,7 @@
   --bg-primary: #ffffff;
   --bg-secondary: #f8fafc;
   --bg-tertiary: #f1f5f9;
+  --bg-overlay: rgba(0, 0, 0, 0.2);
   --bg-primary-rgb: 255, 255, 255;
   --bg-secondary-rgb: 248, 250, 252;
   --bg-tertiary-rgb: 241, 245, 249;
@@ -45,6 +46,7 @@
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
+  --bg-overlay: rgba(0, 0, 0, 0.3);
   --bg-primary-rgb: 15, 23, 42;
   --bg-secondary-rgb: 30, 41, 59;
   --bg-tertiary-rgb: 51, 65, 85;

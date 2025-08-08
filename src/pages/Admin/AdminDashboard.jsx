@@ -20,7 +20,6 @@ import MostPopularProductsWidget from "../../components/Admin/Dashboard/MostPopu
 import TopSellingProductsWidget from "../../components/Admin/Dashboard/TopSellingProductsWidget";
 import TopDeliveryMenWidget from "../../components/Admin/Dashboard/TopDeliveryMenWidget";
 import TopCustomersWidget from "../../components/Admin/Dashboard/TopCustomersWidget";
-import AdminAuthDebugger from "../../components/Admin/AdminAuthDebugger";
 import ReportsPanel from "../../components/Admin/ReportsPanel";
 import RecentOrders from "../../components/Admin/Dashboard/RecentOrders";
 import SalesChart from "../../components/Admin/Dashboard/SalesChart";
@@ -394,8 +393,7 @@ const AdminDashboard = () => {
       {/* Dynamic Content Based on Active View */}
       {renderContent()}
       
-      {/* Temporary debug component */}
-      <AdminAuthDebugger />
+      
     </div>
   );
 };

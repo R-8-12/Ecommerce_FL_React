@@ -35,7 +35,8 @@ const WalletComponent = () => {
       fetchWallet();
       fetchGamificationStatus();
     }
-  }, [isAuthenticated, user, fetchWallet, fetchGamificationStatus]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user]); // Only depend on auth state to prevent infinite loop
 
   // Animate balance changes
   useEffect(() => {
@@ -215,7 +216,7 @@ const WalletComponent = () => {
               >
                 <FaGift className="text-lg" />
                 <span>
-                  {dailySpinAvailable ? 'Daily Spin Available!' : 'Come back tomorrow'}
+                  {dailySpinAvailable ? 'Daily Spin Available!' : 'Spin Used Today'}
                 </span>
                 {dailySpinAvailable && (
                   <motion.div

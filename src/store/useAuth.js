@@ -111,7 +111,19 @@ export const useAuthStore = create((set) => ({
       // Award gamification rewards for login
       try {
         await awardCoins('login');
-        await checkLoginStreakBonus();
+        const streakResult = await checkLoginStreakBonus();
+        
+        // Force refresh gamification data after login streak bonus
+        if (streakResult?.bonus_awarded) {
+          // Dispatch event to refresh gamification store
+          window.dispatchEvent(new CustomEvent('refreshGamification', { 
+            detail: { 
+              newBalance: streakResult.new_balance,
+              bonusAmount: streakResult.bonus_amount,
+              streakCount: streakResult.streak_count
+            } 
+          }));
+        }
       } catch (gamificationError) {
         console.error('Gamification error during login:', gamificationError);
         // Don't block login success for gamification failures
