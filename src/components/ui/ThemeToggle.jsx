@@ -15,13 +15,11 @@ const ThemeToggle = () => {
     { value: 'system', icon: FiMonitor, label: 'System' }
   ];
 
-  
   const getCurrentIcon = () => {
     const currentTheme = themes.find(t => t.value === theme);
     return currentTheme ? currentTheme.icon : FiSun;
   };
 
-  
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -42,7 +40,6 @@ const ThemeToggle = () => {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 border"
@@ -77,7 +74,6 @@ const ThemeToggle = () => {
         />
       </motion.button>
 
-      
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -92,6 +88,9 @@ const ThemeToggle = () => {
               boxShadow: "var(--shadow-large)"
             }}
           >
+
+            {/* FIX: Changed 'icon: _Icon' to 'icon: Icon' to match the usage below */}
+
             {themes.map(({ value, icon: Icon, label }) => (
               <motion.button
                 key={value}
