@@ -43,8 +43,9 @@ import AdminLayout from "./components/Admin/AdminLayout";
 import { DeliveryAuthGuard } from "./components/Delivery";
 
 // 🔐 RBAC Components
-import RoleBasedRouteGuard from "./components/auth/RoleBasedRouteGuard";
 import { CustomerOnlyRoute, AdminOnlyRoute, DeliveryPartnerOnlyRoute, PublicRoute } from "./components/auth/RoleGuards";
+import RoleBasedRouteGuard from "./components/auth/RoleBasedRouteGuard";
+import AdminRouteHandler from "./components/auth/AdminRouteHandler";
 import RoleBasedRedirect from "./components/auth/RoleBasedRedirect";
 
 import {
@@ -268,9 +269,16 @@ const App = () => {
             }
           />
         </Route>
-        {/* Public Routes with Layout */}
+        {/* Public Routes with Layout (allow admin access to homepage but block delivery partners) */}
         <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
+          <Route
+            path="/"
+            element={
+              <AdminRouteHandler>
+                <Home />
+              </AdminRouteHandler>
+            }
+          />
           <Route path="/products" element={<ProductList />} />
           <Route path="/products/:id" element={<Product />} />
           <Route path="/category/:category" element={<ProductList />} />

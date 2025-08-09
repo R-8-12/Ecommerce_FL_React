@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FiHome,
   FiBox,
@@ -17,10 +17,28 @@ import {
 } from "react-icons/fi";
 import NotificationBar from "./NotificationBar";
 import ThemeToggle from "../ui/ThemeToggle";
+import useFrontendCacheStore from "../../store/useFrontendCacheStore";
 
 const AdminLayout = () => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const { initializeCacheWithContext } = useFrontendCacheStore();
+  
+  // Initialize admin context cache on mount
+  useEffect(() => {
+    const initializeAdminCache = async () => {
+      try {
+        console.log('🛠️ Initializing admin context cache...');
+        await initializeCacheWithContext('admin');
+        console.log('✅ Admin cache initialized');
+      } catch (error) {
+        console.error('❌ Admin cache initialization failed:', error);
+      }
+    };
+
+    initializeAdminCache();
+  }, [initializeCacheWithContext]);
+  
   const navLinks = [
     {
       name: "Dashboard",
@@ -179,9 +197,13 @@ const AdminLayout = () => {
             to="/"
             className="flex items-center px-4 py-2 rounded-md hover:bg-gray-700 hover:bg-opacity-30 transition-all duration-150 text-sm"
             style={{ borderRadius: "var(--rounded-md)" }}
+            onClick={() => {
+              // Set flag to allow admin to access homepage
+              sessionStorage.setItem('admin_visiting_homepage', 'true');
+            }}
           >
             <FiArrowLeft size={20} />
-            {!collapsed && <span className="ml-3">Back to Site</span>}
+            {!collapsed && <span className="ml-3">Visit Homepage</span>}
           </Link>
         </div>
       </aside>

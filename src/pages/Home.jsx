@@ -15,8 +15,8 @@ import { Link } from "react-router-dom";
 
 const Home = () => {
   const { products, featuredProducts, fetchProducts } = useProductStore();
-  // Use centralized cache instead of individual stores
-  const { getHomepageSections, isLoading } = useFrontendCacheStore();
+  // Use centralized cache with context awareness
+  const { getHomepageSections, isLoading, initializeCacheWithContext } = useFrontendCacheStore();
   
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
@@ -29,8 +29,11 @@ const Home = () => {
   useEffect(() => {
     const initializeHomePage = async () => {
       try {
-        console.log('🏠 Initializing homepage with cached data...');
+        console.log('🏠 Initializing homepage with context-aware cache...');
         setIsLoadingProducts(true);
+        
+        // Initialize homepage context - this will only fetch what's missing/stale
+        await initializeCacheWithContext('homepage');
         
         // Only fetch products if we don't have them already
         if (products.length === 0) {
@@ -38,8 +41,7 @@ const Home = () => {
           await fetchProducts();
         }
         
-        // No need to fetch banners or homepage sections - they come from cache!
-        console.log('✅ Homepage initialized using cached data (no redundant API calls)');
+        console.log('✅ Homepage initialized with optimized cache (no redundant API calls)');
       } catch (error) {
         console.error('Homepage initialization error:', error);
       } finally {
@@ -189,7 +191,7 @@ const Home = () => {
         return (
           <section key={section.section_id} style={sectionStyle} className="py-12">
             <div className="container mx-auto px-4">
-              <div className="max-w-2xl mx-auto text-center">
+              <div className="max-w-3xl mx-auto text-center">
                 <h2
                   className="text-3xl font-bold mb-4"
                   style={{ color: "var(--text-primary)" }}
@@ -202,7 +204,7 @@ const Home = () => {
                 >
                   {section.description || "Subscribe to our newsletter for the latest updates and exclusive offers"}
                 </p>
-                <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                <div className="flex flex-col sm:flex-row gap-3 max-w-lg mx-auto w-full">
                   <input
                     type="email"
                     placeholder="Enter your email"

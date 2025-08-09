@@ -63,14 +63,16 @@ export const usePageContentStore = create((set, get) => ({
     }
   },
 
-  // Check if a page exists
+  // Check if a page exists (use GET to avoid HEAD 405 on backend)
   checkPageExists: async (pagePath) => {
     try {
-      const response = await adminApi.head(
-        `/admin/content/pages/${pagePath.replace(/^\//, "")}/`
+      const response = await adminApi.get(
+        `/admin/content/pages/${pagePath.replace(/^\//, "")}/`,
+        { headers: { Accept: 'application/json' } }
       );
-      return response.status === 200;
-    } catch {
+      return response.status === 200 && !!response.data;
+  } catch {
+      // Treat 404 as not found; any other network error as not exists
       return false;
     }
   },

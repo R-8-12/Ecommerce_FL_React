@@ -47,6 +47,11 @@ export const useAdminStore = create((set, get) => {
     loading: false,
     error: null,
     
+    // User cache to prevent excessive API calls
+    userCache: new Map(),
+    userCacheExpiry: new Map(),
+    CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+    
     // DELIVERY PARTNERS STATE (not in optimized store yet)
     deliveryPartners: {
       list: [],
@@ -236,9 +241,39 @@ export const useAdminStore = create((set, get) => {
 
     getCachedUser: async (userId) => {
       const state = get();
-      // Simple implementation - in production you'd want actual caching
+      const now = Date.now();
+      
+      // Check if user is in cache and not expired
+      if (state.userCache.has(userId)) {
+        const cachedTime = state.userCacheExpiry.get(userId);
+        if (cachedTime && (now - cachedTime) < state.CACHE_DURATION) {
+          console.log(`📦 Using cached user data for ${userId}`);
+          return state.userCache.get(userId);
+        } else {
+          // Remove expired cache entry
+          state.userCache.delete(userId);
+          state.userCacheExpiry.delete(userId);
+        }
+      }
+      
+      // Fetch fresh data and cache it
       try {
-        return await state.getUserById(userId);
+        console.log(`📥 Fetching fresh user data for ${userId}`);
+        const userData = await state.getUserById(userId);
+        
+        if (userData) {
+          // Cache the user data
+          state.userCache.set(userId, userData);
+          state.userCacheExpiry.set(userId, now);
+          
+          // Update the store to trigger reactivity (but don't replace the whole cache)
+          set({
+            userCache: new Map(state.userCache),
+            userCacheExpiry: new Map(state.userCacheExpiry)
+          });
+        }
+        
+        return userData;
       } catch (error) {
         console.error(`Failed to get cached user ${userId}:`, error);
         return null;
@@ -254,6 +289,18 @@ export const useAdminStore = create((set, get) => {
         console.error(`Failed to get cached product ${productId}:`, error);
         return null;
       }
+    },
+
+    // Clear user cache (useful for memory management)
+    clearUserCache: () => {
+      const state = get();
+      state.userCache.clear();
+      state.userCacheExpiry.clear();
+      set({
+        userCache: new Map(),
+        userCacheExpiry: new Map()
+      });
+      console.log('🗑️ User cache cleared');
     },
 
     // ORDER MANAGEMENT METHODS

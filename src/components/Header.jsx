@@ -8,6 +8,7 @@ import {
   FiMenu,
   FiX,
   FiCalendar,
+  FiSettings,
 } from "react-icons/fi";
 import { ROUTES } from "../utils/constants";
 import Logo from "./ui/Logo";
@@ -18,6 +19,7 @@ import { useWishlistStore } from "../store/useWishlist";
 import { Link, useNavigate } from "react-router-dom";
 import { useProductStore } from "../store/useProduct";
 import { useBannerStore } from "../store/Admin/useBannerStore";
+import { useAdminAuthStore } from "../store/Admin/useAdminAuth";
 import WalletComponent from "./gamification/WalletComponent";
 
 // FIX 1: Add a reusable 'useOutsideClick' hook for clean "click-outside" logic
@@ -61,6 +63,7 @@ const Header = () => {
   const productsInitialized = useRef(false);
   const { searchProducts, fetchProducts } = useProductStore();
   const { getDropdownBanners } = useBannerStore();
+  const { isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const [location, setLocation] = useState({
     city: "Bhopal",
     loading: false,
@@ -576,7 +579,7 @@ const Header = () => {
             "linear-gradient(to right, var(--brand-primary), var(--brand-primary-hover))",
         }}
       >
-        <div className="container mx-auto px-2 sm:px-4">
+  <div className="container mx-auto px-4">
           <div className="flex items-center justify-between py-4 gap-4">
             {/* Mobile Menu Button */}
             <button
@@ -718,6 +721,28 @@ const Header = () => {
             </div>
             {/* Enhanced Right Header Menu with improved spacing */}
             <div className="flex items-center gap-3 md:gap-5 lg:gap-6 flex-shrink-0">
+              {/* Admin quick access (visible to admins only) */}
+              {isAdminAuth && (
+                <Link
+                  to="/admin/dashboard"
+                  className="hidden sm:flex flex-col items-center transition-all duration-300 hover:translate-y-[-2px] group"
+                  title="Go to Admin Dashboard"
+                >
+                  <div className="relative">
+                    <div className="absolute -inset-1.5 bg-white/10 rounded-full blur-md group-hover:bg-white/20 transition-all duration-300 opacity-0 group-hover:opacity-100"></div>
+                    <FiSettings
+                      className="text-xl relative z-10"
+                      style={{ color: "var(--text-on-brand)" }}
+                    />
+                  </div>
+                  <p
+                    className="text-xs font-semibold mt-1"
+                    style={{ color: "var(--text-on-brand)" }}
+                  >
+                    Admin
+                  </p>
+                </Link>
+              )}
               {/* Location */}
               <div className="group flex flex-col items-center cursor-pointer transition-all duration-300 hover:translate-y-[-2px] relative">
                 <div className="relative">
@@ -982,7 +1007,7 @@ const Header = () => {
           zIndex: 40,
         }}
       >
-        <div className="container mx-auto px-2 sm:px-3 relative">
+  <div className="container mx-auto px-4 relative">
           <ul
             className="hidden lg:flex items-center justify-between py-3.5"
             style={{ overflow: "visible" }}

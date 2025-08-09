@@ -53,8 +53,8 @@ const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/' }) 
           return;
         }
       } else if (currentRole === 'admin') {
-        // Admins should only access admin routes
-        if (!location.pathname.startsWith('/admin/')) {
+        // Admins can access homepage explicitly, but redirect to admin dashboard for other non-admin paths
+        if (!location.pathname.startsWith('/admin/') && location.pathname !== '/') {
           navigate('/admin/dashboard', { replace: true });
           return;
         }

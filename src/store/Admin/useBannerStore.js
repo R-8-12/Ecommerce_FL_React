@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { adminApi } from "../../services/api";
+import useFrontendCacheStore from "../useFrontendCacheStore";
 
 // Banner store
 export const useBannerStore = create(
@@ -22,7 +23,14 @@ export const useBannerStore = create(
         const response = await adminApi.get("/admin/banners/");
 
         if (response.status === 200) {
-          set({ banners: response.data.banners || [], loading: false });
+          const fresh = response.data.banners || [];
+          set({ banners: fresh, loading: false });
+          // Sync public cache so homepage reflects updates immediately
+          try {
+            useFrontendCacheStore.getState().updateBanners(fresh);
+          } catch (e) {
+            console.warn('Failed to sync frontend banner cache after fetchBanners:', e?.message || e);
+          }
           return response.data.banners;
         }
       } catch (error) {
@@ -60,7 +68,7 @@ export const useBannerStore = create(
         throw error;
       }
     }, // Add new banner
-    addBanner: async (bannerData) => {
+  addBanner: async (bannerData) => {
       set({ loading: true, error: null });
       try {
         const response = await adminApi.post(
@@ -74,8 +82,13 @@ export const useBannerStore = create(
         );
 
         if (response.status === 201) {
-          // Refresh the banner list
-          await get().fetchBanners();
+          // Refresh the banner list and sync frontend cache
+          const updated = await get().fetchBanners();
+          try {
+            useFrontendCacheStore.getState().updateBanners(updated || []);
+          } catch (e) {
+            console.warn('Failed to sync frontend banner cache after addBanner:', e?.message || e);
+          }
 
           set({ loading: false });
           return response.data;
@@ -89,7 +102,7 @@ export const useBannerStore = create(
         throw error;
       }
     }, // Edit banner
-    editBanner: async (bannerId, bannerData) => {
+  editBanner: async (bannerId, bannerData) => {
       set({ loading: true, error: null });
       try {
         const isFormData = bannerData instanceof FormData;
@@ -107,8 +120,13 @@ export const useBannerStore = create(
         );
 
         if (response.status === 200) {
-          // Refresh banner list to get updated data including new image URL
-          await get().fetchBanners();
+          // Refresh banner list to get updated data including new image URL and sync cache
+          const updated = await get().fetchBanners();
+          try {
+            useFrontendCacheStore.getState().updateBanners(updated || []);
+          } catch (e) {
+            console.warn('Failed to sync frontend banner cache after editBanner:', e?.message || e);
+          }
           set({ loading: false });
           return response.data;
         }
@@ -123,7 +141,7 @@ export const useBannerStore = create(
     },
 
     // Delete banner
-    deleteBanner: async (bannerId) => {
+  deleteBanner: async (bannerId) => {
       set({ loading: true, error: null });
       try {
         const response = await adminApi.delete(
@@ -137,6 +155,11 @@ export const useBannerStore = create(
             (banner) => banner.id !== bannerId
           );
           set({ banners: updatedBanners, loading: false });
+          try {
+            useFrontendCacheStore.getState().updateBanners(updatedBanners);
+          } catch (e) {
+            console.warn('Failed to sync frontend banner cache after deleteBanner:', e?.message || e);
+          }
 
           return response.data;
         }
@@ -151,7 +174,7 @@ export const useBannerStore = create(
     },
 
     // Toggle banner active status
-    toggleBannerActive: async (bannerId) => {
+  toggleBannerActive: async (bannerId) => {
       set({ loading: true, error: null });
       try {
         const response = await adminApi.patch(
@@ -167,6 +190,11 @@ export const useBannerStore = create(
               : banner
           );
           set({ banners: updatedBanners, loading: false });
+          try {
+            useFrontendCacheStore.getState().updateBanners(updatedBanners);
+          } catch (e) {
+            console.warn('Failed to sync frontend banner cache after toggleBannerActive:', e?.message || e);
+          }
 
           return response.data;
         }

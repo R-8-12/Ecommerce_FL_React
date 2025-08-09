@@ -33,6 +33,7 @@ const STORAGE_KEYS = {
   LOGO: 'frontend_cache_logo',
   PAGES: 'frontend_cache_pages',
   LAST_FETCH: 'frontend_cache_last_fetch',
+  CONTEXT_CACHE: 'frontend_cache_context_tracking', // Track what context loaded what data
 };
 
 // Helper functions for localStorage
@@ -118,6 +119,13 @@ const useFrontendCacheStore = create(
         pages: DEFAULT_DATA.pages,
       },
       
+      // Context tracking - track what context loaded what data
+      contextCache: getStoredData(STORAGE_KEYS.CONTEXT_CACHE) || {
+        homepage: {},
+        admin: {},
+        shared: {}
+      },
+      
       // Loading states
       loading: {
         theme: false,
@@ -135,6 +143,98 @@ const useFrontendCacheStore = create(
 
       // Initialization state
       initialized: false,
+
+      // Context-aware initialization to prevent duplicate calls
+      initializeCacheWithContext: async (context = 'homepage', force = false) => {
+        const { contextCache } = get();
+        
+        // Check if this context already has loaded data
+        const contextData = contextCache[context] || {};
+        const now = Date.now();
+        
+        // Define what data each context needs
+        const contextRequirements = {
+          homepage: ['theme', 'banners', 'footer', 'homepageSections', 'brands', 'categories', 'logo'],
+          admin: ['theme', 'footer', 'logo'], // Admin should NOT call banners/homepage sections/brands/categories
+          shared: ['theme', 'footer', 'logo'] // Minimal shared data
+        };
+        
+        const requiredData = contextRequirements[context] || contextRequirements.shared;
+        
+        console.log(`🎯 Initializing ${context} context cache with requirements:`, requiredData);
+        
+        // Check what data is missing or stale for this context
+        const fetchPromises = [];
+        const needsFetch = {};
+        
+        for (const dataType of requiredData) {
+          const lastFetch = contextData[dataType] || 0;
+          const maxAge = CACHE_DURATION[dataType.toUpperCase()] || CACHE_DURATION.THEME;
+          const isStale = (now - lastFetch) > maxAge;
+          
+          // Check if ANY context has recently fetched this data (cross-context sharing)
+          const allContexts = Object.values(contextCache);
+          const anyRecentFetch = allContexts.some(ctx => ctx[dataType] && (now - ctx[dataType]) < maxAge);
+          
+          if (force || (!lastFetch && !anyRecentFetch) || (isStale && !anyRecentFetch)) {
+            needsFetch[dataType] = true;
+            console.log(`📥 ${context}: Fetching ${dataType}...`);
+          } else if (anyRecentFetch) {
+            console.log(`✅ ${context}: Using cross-context cached ${dataType}`);
+          } else {
+            console.log(`✅ ${context}: Using cached ${dataType}`);
+          }
+        }
+        
+        // Fetch only what's needed
+        Object.keys(needsFetch).forEach(dataType => {
+          const fetchMethod = `fetch${dataType.charAt(0).toUpperCase() + dataType.slice(1)}`;
+          if (get()[fetchMethod]) {
+            // Pass context to fetch method for context-aware API selection
+            fetchPromises.push(get()[fetchMethod](context));
+          }
+        });
+        
+        // Execute fetches
+        if (fetchPromises.length > 0) {
+          try {
+            await Promise.all(fetchPromises);
+            
+            // Update context cache tracking for ALL contexts that need this data
+            const updatedContextCache = { ...get().contextCache };
+            
+            // Update the current context
+            updatedContextCache[context] = { ...contextData };
+            Object.keys(needsFetch).forEach(dataType => {
+              updatedContextCache[context][dataType] = now;
+            });
+            
+            // Also update other contexts that require the same data (cross-context sharing)
+            Object.keys(contextRequirements).forEach(ctxName => {
+              if (ctxName !== context) {
+                const ctxRequiredData = contextRequirements[ctxName];
+                updatedContextCache[ctxName] = updatedContextCache[ctxName] || {};
+                
+                Object.keys(needsFetch).forEach(dataType => {
+                  if (ctxRequiredData.includes(dataType)) {
+                    updatedContextCache[ctxName][dataType] = now;
+                    console.log(`🔄 Cross-context update: ${ctxName} now has cached ${dataType}`);
+                  }
+                });
+              }
+            });
+            
+            set({ contextCache: updatedContextCache });
+            setStoredData(STORAGE_KEYS.CONTEXT_CACHE, updatedContextCache);
+            
+            console.log(`✅ ${context} context cache updated successfully`);
+          } catch (error) {
+            console.error(`❌ Error initializing ${context} cache:`, error);
+          }
+        }
+        
+        return get().cache;
+      },
 
       // Initialize cache with minimal API calls
       initializeCache: async (force = false) => {
@@ -258,15 +358,18 @@ const useFrontendCacheStore = create(
         return get().cache;
       },
 
-      // Individual fetch methods (only called when data is stale)
-      fetchTheme: async () => {
+      // Individual fetch methods (context-aware API calls)
+      fetchTheme: async (context = 'homepage') => {
         if (get().loading.theme) return get().cache.theme;
         
         set(state => ({ loading: { ...state.loading, theme: true } }));
         
         try {
-          console.log('🎨 Fetching theme from API...');
-          const response = await api.get('/admin/theme/public/');
+          console.log(`🎨 Fetching theme from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/theme/public/' : '/admin/theme/public/';
+          const response = await api.get(endpoint);
           const themeData = response.data.theme || DEFAULT_DATA.theme;
           
           console.log('🎨 Theme data received:', themeData);
@@ -304,14 +407,17 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchBanners: async () => {
+      fetchBanners: async (context = 'homepage') => {
         if (get().loading.banners) return get().cache.banners;
         
         set(state => ({ loading: { ...state.loading, banners: true } }));
         
         try {
-          console.log('🎯 Fetching banners from API...');
-          const response = await api.get('/admin/banners/public/');
+          console.log(`🎯 Fetching banners from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/banners/public/' : '/admin/banners/public/';
+          const response = await api.get(endpoint);
           const bannersData = response.data.banners || DEFAULT_DATA.banners;
           
           console.log('🎯 Banners data received:', bannersData);
@@ -336,14 +442,17 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchFooter: async () => {
+      fetchFooter: async (context = 'homepage') => {
         if (get().loading.footer) return get().cache.footer;
         
         set(state => ({ loading: { ...state.loading, footer: true } }));
         
         try {
-          console.log('🦶 Fetching footer from API...');
-          const response = await api.get('/admin/footer/');
+          console.log(`🦶 Fetching footer from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/footer/' : '/admin/footer/';
+          const response = await api.get(endpoint);
           // Fix: Extract footer_config from API response
           const footerData = response.data.footer_config || DEFAULT_DATA.footer;
           
@@ -369,14 +478,17 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchHomepageSections: async () => {
+      fetchHomepageSections: async (context = 'homepage') => {
         if (get().loading.homepageSections) return get().cache.homepageSections;
         
         set(state => ({ loading: { ...state.loading, homepageSections: true } }));
         
         try {
-          console.log('🏠 Fetching homepage sections from API...');
-          const response = await api.get('/admin/homepage/sections/public/');
+          console.log(`🏠 Fetching homepage sections from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/homepage/sections/public/' : '/admin/homepage/sections/public/';
+          const response = await api.get(endpoint);
           const sectionsData = response.data.sections || DEFAULT_DATA.homepageSections;
           
           console.log('🏠 Homepage sections data received:', sectionsData);
@@ -401,14 +513,17 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchBrands: async () => {
+      fetchBrands: async (context = 'homepage') => {
         if (get().loading.brands) return get().cache.brands;
         
         set(state => ({ loading: { ...state.loading, brands: true } }));
         
         try {
-          console.log('🏷️ Fetching brands from API...');
-          const response = await api.get('/admin/brands/public/');
+          console.log(`🏷️ Fetching brands from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/brands/public/' : '/admin/brands/public/';
+          const response = await api.get(endpoint);
           const brandsData = response.data.brands || DEFAULT_DATA.brands;
           
           console.log('🏷️ Brands data received:', brandsData);
@@ -441,12 +556,15 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchCategories: async () => {
+      fetchCategories: async (context = 'homepage') => {
         if (get().loading.categories) return get().cache.categories;
         
         set(state => ({ loading: { ...state.loading, categories: true } }));
         
         try {
+          console.log(`📁 Fetching categories from API (${context} context)...`);
+          
+          // Categories use the same endpoint for both contexts (products API)
           const response = await api.get('/products/categories/');
           const categoriesData = response.data.categories || DEFAULT_DATA.categories;
           
@@ -470,14 +588,17 @@ const useFrontendCacheStore = create(
         }
       },
 
-      fetchLogo: async () => {
+      fetchLogo: async (context = 'homepage') => {
         if (get().loading.logo) return get().cache.logo;
         
         set(state => ({ loading: { ...state.loading, logo: true } }));
         
         try {
-          console.log('🏷️ Fetching logo from API...');
-          const response = await api.get('/admin/content/logo/');
+          console.log(`🏷️ Fetching logo from API (${context} context)...`);
+          
+          // Use different endpoints based on context
+          const endpoint = context === 'admin' ? '/admin/content/logo/' : '/admin/content/logo/';
+          const response = await api.get(endpoint);
           // Fix: Extract logo_url from API response
           const logoData = response.data.logo_url || DEFAULT_DATA.logo;
           

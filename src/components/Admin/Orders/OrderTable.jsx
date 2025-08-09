@@ -70,37 +70,52 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Customer name component that fetches user data
-const CustomerName = ({ userId }) => {
+// Customer display component that only fetches if needed
+const CustomerDisplay = ({ order }) => {
   const { getCachedUser } = useAdminStore();
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
+  // First try to get customer info from order data
+  const orderCustomerName = getCustomerName(order);
+  const orderCustomerEmail = getCustomerEmail(order);
+  
+  // Only fetch user data if we don't have sufficient info from order
+  const needsUserFetch = orderCustomerName.startsWith('User-') && orderCustomerEmail === 'No email';
+  
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const userData = await getCachedUser(userId);
-        setUser(userData);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, [userId, getCachedUser]);
+    if (needsUserFetch) {
+      setLoading(true);
+      const fetchUser = async () => {
+        try {
+          const userData = await getCachedUser(order.user_id);
+          setUser(userData);
+        } catch (error) {
+          console.error("Error fetching user:", error);
+          setUser(null);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchUser();
+    }
+  }, [order.user_id, getCachedUser, needsUserFetch]);
 
   if (loading) {
     return <FiLoader className="animate-spin" size={14} />;
   }
 
-  const displayName = user
-    ? `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
-      user.email ||
-      user.username
-    : `User-${userId.substring(0, 8)}`;
+  // Use order data first, fallback to fetched user data
+  let displayName = orderCustomerName;
+  let displayEmail = orderCustomerEmail;
+  
+  if (needsUserFetch && user) {
+    displayName = `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+                  user.email ||
+                  user.username ||
+                  orderCustomerName;
+    displayEmail = user.email || orderCustomerEmail;
+  }
 
   return (
     <>
@@ -111,7 +126,7 @@ const CustomerName = ({ userId }) => {
         {displayName}
       </div>
       <div className="text-xs" style={{ color: "var(--text-secondary)" }}>
-        {userId.substring(0, 12)}...
+        {displayEmail !== 'No email' ? displayEmail : `${order.user_id.substring(0, 12)}...`}
       </div>
     </>
   );
@@ -277,7 +292,7 @@ const OrderTable = ({ onSelectOrder, statusFilter, searchQuery }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <CustomerName userId={order.user_id} />
+                      <CustomerDisplay order={order} />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div
