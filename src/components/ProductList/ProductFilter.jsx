@@ -31,6 +31,9 @@ const ProductFilter = ({
   // Add new filter states for dynamic attributes
   selectedAttributes,
   setSelectedAttributes,
+  // URL parameter handling functions
+  resetFilters, // Function to reset all filters and clear URL
+  updateURLParams, // Function to update URL parameters
 }) => {
   // State for accordion sections - dynamically add sections based on available attributes
   const [openSections, setOpenSections] = useState({
@@ -303,6 +306,14 @@ const ProductFilter = ({
 
   const applyPriceRange = () => {
     setPriceRange({ min: minPrice, max: maxPrice });
+    
+    // Update URL parameters if function is available
+    if (updateURLParams) {
+      updateURLParams({ 
+        priceMin: minPrice, 
+        priceMax: maxPrice 
+      });
+    }
   };
 
   // Toggle stock filter
@@ -357,20 +368,26 @@ const ProductFilter = ({
   };
   // Reset all filters
   const resetAllFilters = () => {
-    setSelectedBrands([]);
-    setPriceRange({ min: 0, max: 150000 });
-    setMinPrice(0);
-    setMaxPrice(150000);
-    setSelectedRating(0);
-    setStockFilters({ inStock: false, outOfStock: false });
-    setSelectedStorage([]);
-    setSelectedRAM([]);
-    setSelectedColors([]);
-    setSelectedCategories([]);
-    setSelectedDiscount(null);
-    // Reset dynamic attributes
-    if (setSelectedAttributes) {
-      setSelectedAttributes({});
+    if (resetFilters) {
+      // Use the parent's reset function which also handles URL clearing
+      resetFilters();
+    } else {
+      // Fallback to local state reset if resetFilters prop is not provided
+      setSelectedBrands([]);
+      setPriceRange({ min: 0, max: 150000 });
+      setMinPrice(0);
+      setMaxPrice(150000);
+      setSelectedRating(0);
+      setStockFilters({ inStock: false, outOfStock: false });
+      setSelectedStorage([]);
+      setSelectedRAM([]);
+      setSelectedColors([]);
+      setSelectedCategories([]);
+      setSelectedDiscount(null);
+      // Reset dynamic attributes
+      if (setSelectedAttributes) {
+        setSelectedAttributes({});
+      }
     }
   };
   // Update minPrice and maxPrice when priceRange changes

@@ -1,19 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import usePublicBrandsStore from "../../store/usePublicBrandsStore";
+import useFrontendCacheStore from "../../store/useFrontendCacheStore";
 
 const BrandsSection = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [visibleBrands, setVisibleBrands] = useState(6);
   
-  // Use the public brands store
-  const { brands, loading, fetchPublicBrands } = usePublicBrandsStore();
+  // Use the centralized frontend cache store
+  const { getBrands, isLoading } = useFrontendCacheStore();
+  
+  // Get brands from cache (no API call needed)
+  const brands = getBrands();
+  const loading = isLoading('brands');
 
-  // Fetch brands on component mount
+  // No need for manual fetch - cache handles it automatically
   useEffect(() => {
-    fetchPublicBrands(false); // Get all brands, not just featured
-  }, [fetchPublicBrands]);
+    // The cache initialization happens at app level
+    // This component just reads from cache
+  }, []);
 
   // Filter to get display brands (active brands, prioritizing featured ones)
   const displayBrands = React.useMemo(() => {

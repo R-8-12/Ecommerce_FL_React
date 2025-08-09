@@ -171,10 +171,10 @@ const Header = () => {
         {
           title: "By Price Range",
           items: [
-            { name: "Under ₹15,000", path: "/category/smartphones?price_max=15000" },
-            { name: "₹15,000 - ₹25,000", path: "/category/smartphones?price_min=15000&price_max=25000" },
-            { name: "₹25,000 - ₹50,000", path: "/category/smartphones?price_min=25000&price_max=50000" },
-            { name: "Above ₹50,000", path: "/category/smartphones?price_min=50000", premium: true },
+            { name: "Under ₹15,000", path: "/category/smartphones?priceMax=15000" },
+            { name: "₹15,000 - ₹25,000", path: "/category/smartphones?priceMin=15000&priceMax=25000" },
+            { name: "₹25,000 - ₹50,000", path: "/category/smartphones?priceMin=25000&priceMax=50000" },
+            { name: "Above ₹50,000", path: "/category/smartphones?priceMin=50000", premium: true },
           ],
         },
         {
@@ -308,17 +308,17 @@ const Header = () => {
           items: [
             {
               name: "Bluetooth Speakers",
-              path: "/category/speakers?type=bluetooth",
+              path: "/category/audio?type=bluetooth",
             },
             {
               name: "Wireless Speakers",
-              path: "/category/speakers?type=wireless",
+              path: "/category/audio?type=wireless",
             },
             {
               name: "Portable Speakers",
-              path: "/category/speakers?type=portable",
+              path: "/category/audio?type=portable",
             },
-            { name: "Home Audio", path: "/category/speakers?type=home-audio" },
+            { name: "Home Audio", path: "/category/audio?type=home-audio" },
           ],
         },
         {
@@ -326,32 +326,32 @@ const Header = () => {
           items: [
             {
               name: "JBL",
-              path: "/category/speakers?brand=JBL",
+              path: "/category/audio?brand=JBL",
               brands: ["JBL"],
             },
             {
               name: "boAt",
-              path: "/category/speakers?brand=Boat",
+              path: "/category/audio?brand=Boat",
               brands: ["Boat"],
             },
             {
               name: "Zebronics",
-              path: "/category/speakers?brand=Zebronics",
+              path: "/category/audio?brand=Zebronics",
               brands: ["Zebronics"],
             },
             {
               name: "Digitek",
-              path: "/category/speakers?brand=Digiteck",
+              path: "/category/audio?brand=Digiteck",
               brands: ["Digiteck"],
             },
             {
               name: "Edifier",
-              path: "/category/speakers?brand=Edifier",
+              path: "/category/audio?brand=Edifier",
               brands: ["Edifier"],
             },
             {
               name: "Ultra Prolink",
-              path: "/category/speakers?brand=Ultra Prolink",
+              path: "/category/audio?brand=Ultra Prolink",
               brands: ["Ultra Prolink"],
             },
           ],

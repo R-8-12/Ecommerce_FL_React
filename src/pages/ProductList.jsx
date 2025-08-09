@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { ROUTES } from "../utils/constants";
 import Breadcrumb from "../components/Breadcrumb/Breadcrumb";
 import ProductFilter from "../components/ProductList/ProductFilter";
@@ -11,6 +11,9 @@ import { useProductStore } from "../store/useProduct";
 
 const ProductList = () => {
   let { category } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
   // Normalize category to lowercase and handle common variations
   if (category) {
     category = category.toLowerCase();
@@ -23,6 +26,7 @@ const ProductList = () => {
       category = 'laptop-accessories';
     }
   }
+  
   const [showFilters, setShowFilters] = useState(false);
   // Filter states
   const [selectedBrands, setSelectedBrands] = useState([]);
@@ -46,9 +50,66 @@ const ProductList = () => {
 
   const { products, brands, loading, fetchProducts } = useProductStore();
 
+  // Initialize filters from URL parameters
+  useEffect(() => {
+    const brandParam = searchParams.get('brand');
+    const priceMinParam = searchParams.get('priceMin');
+    const priceMaxParam = searchParams.get('priceMax');
+    const sortParam = searchParams.get('sort');
+    const ratingParam = searchParams.get('rating');
+    const discountParam = searchParams.get('discount');
+    
+    // Set brand filter from URL
+    if (brandParam) {
+      console.log('🏷️ Setting brand filter from URL:', brandParam);
+      setSelectedBrands([brandParam]);
+    }
+    
+    // Set price range from URL
+    if (priceMinParam || priceMaxParam) {
+      setPriceRange({
+        min: priceMinParam ? parseInt(priceMinParam) : 0,
+        max: priceMaxParam ? parseInt(priceMaxParam) : 150000
+      });
+    }
+    
+    // Set sorting from URL
+    if (sortParam) {
+      setSortBy(sortParam);
+    }
+    
+    // Set rating filter from URL
+    if (ratingParam) {
+      setSelectedRating(parseInt(ratingParam));
+    }
+    
+    // Set discount filter from URL
+    if (discountParam) {
+      setSelectedDiscount(parseInt(discountParam));
+    }
+    
+    console.log('🔗 URL parameters applied to filters');
+  }, [searchParams]);
+
   useEffect(() => {
     fetchProducts();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update URL parameters when filters change (except on initial load)
+  useEffect(() => {
+    // Skip URL update during initial load when filters are being set from URL
+    const hasURLParams = searchParams.has('brand') || searchParams.has('priceMin') || 
+                        searchParams.has('priceMax') || searchParams.has('sort') || 
+                        searchParams.has('rating') || searchParams.has('discount');
+    
+    if (!hasURLParams) {
+      // Only update URL if this is not the initial load from URL parameters
+      const timeout = setTimeout(() => {
+        updateURLParams();
+      }, 100);
+      return () => clearTimeout(timeout);
+    }
+  }, [selectedBrands, priceRange, sortBy, selectedRating, selectedDiscount]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Transform products from store to match the expected format
   const transformedProducts = (products || []).map((product) => ({
@@ -61,11 +122,70 @@ const ProductList = () => {
   }));
 
   const toggleBrandFilter = (brand) => {
+    let newBrands;
     if (selectedBrands.includes(brand)) {
-      setSelectedBrands(selectedBrands.filter((b) => b !== brand));
+      newBrands = selectedBrands.filter((b) => b !== brand);
     } else {
-      setSelectedBrands([...selectedBrands, brand]);
+      newBrands = [...selectedBrands, brand];
     }
+    setSelectedBrands(newBrands);
+    
+    // Update URL parameters
+    updateURLParams({ brands: newBrands });
+  };
+  
+  // Function to update URL parameters based on current filters
+  const updateURLParams = (updates = {}) => {
+    const params = new URLSearchParams(searchParams);
+    
+    // Update brands
+    const brands = updates.brands !== undefined ? updates.brands : selectedBrands;
+    if (brands.length > 0) {
+      params.set('brand', brands[0]); // For simplicity, use first brand in URL
+    } else {
+      params.delete('brand');
+    }
+    
+    // Update price range
+    const priceMin = updates.priceMin !== undefined ? updates.priceMin : priceRange.min;
+    const priceMax = updates.priceMax !== undefined ? updates.priceMax : priceRange.max;
+    if (priceMin > 0) {
+      params.set('priceMin', priceMin.toString());
+    } else {
+      params.delete('priceMin');
+    }
+    if (priceMax < 150000) {
+      params.set('priceMax', priceMax.toString());
+    } else {
+      params.delete('priceMax');
+    }
+    
+    // Update sort
+    const sort = updates.sort !== undefined ? updates.sort : sortBy;
+    if (sort !== 'popularity') {
+      params.set('sort', sort);
+    } else {
+      params.delete('sort');
+    }
+    
+    // Update rating
+    const rating = updates.rating !== undefined ? updates.rating : selectedRating;
+    if (rating > 0) {
+      params.set('rating', rating.toString());
+    } else {
+      params.delete('rating');
+    }
+    
+    // Update discount
+    const discount = updates.discount !== undefined ? updates.discount : selectedDiscount;
+    if (discount) {
+      params.set('discount', discount.toString());
+    } else {
+      params.delete('discount');
+    }
+    
+    // Update the URL
+    setSearchParams(params);
   };
   // This function is now handled within the ProductFilter component
 
@@ -274,6 +394,11 @@ const ProductList = () => {
     setSelectedCategories([]);
     setSelectedDiscount(null);
     setSelectedAttributes({});
+    
+    // Clear URL parameters while keeping the category path
+    const currentPath = category ? `/category/${category}` : '/products';
+    navigate(currentPath, { replace: true });
+    console.log('🧹 All filters cleared and URL updated');
   };
 
   // Breadcrumb items
@@ -334,6 +459,8 @@ const ProductList = () => {
             setSelectedDiscount={setSelectedDiscount}
             selectedAttributes={selectedAttributes}
             setSelectedAttributes={setSelectedAttributes}
+            resetFilters={resetFilters}
+            updateURLParams={updateURLParams}
           />
           {/* Product Grid */}
           <div className="w-full md:w-3/4">

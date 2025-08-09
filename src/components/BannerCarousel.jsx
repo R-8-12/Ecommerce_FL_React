@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
-import { useBannerStore } from "../store/Admin/useBannerStore";
+import useFrontendCacheStore from "../store/useFrontendCacheStore";
 
 // Define fallback product images with correct paths for Vite
 const fallbackImages = [
@@ -34,13 +34,31 @@ const fallbackImages = [
 ];
 
 const BannerCarousel = () => {
-  const { getCarouselBanners } = useBannerStore();
+  // Use centralized cache instead of individual banner store
+  const { getBanners } = useFrontendCacheStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [[page, direction], setPage] = useState([0, 0]);
 
-  // Get carousel banners from store or use fallback
-  const carouselBanners = getCarouselBanners();
+  // Get carousel banners from cache or use fallback
+  const allBanners = getBanners();
+  console.log('🎠 All banners from cache:', allBanners);
+  
+  // Filter for carousel position banners that are active
+  // Based on the database, we'll use 'carousel' position, but if none exist, use hero banners
+  let carouselBanners = allBanners.filter(banner => 
+    banner.position === 'carousel' && banner.active === true
+  );
+  
+  // If no carousel banners, use hero banners as fallback
+  if (carouselBanners.length === 0) {
+    carouselBanners = allBanners.filter(banner => 
+      banner.position === 'hero' && banner.active === true
+    );
+  }
+  
+  console.log('🎠 Filtered carousel banners:', carouselBanners);
   const banners = carouselBanners.length > 0 ? carouselBanners : fallbackImages;
+  console.log('🎠 Final banners for carousel:', banners);
   // Auto-advance the slider
   useEffect(() => {
     const timer = setTimeout(() => {

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from 'framer-motion'; // Used for JSX motion elements
 import { useNavigate, Link } from "react-router-dom";
 import Button from "./ui/Button";
-import { useBannerStore } from "../store/Admin/useBannerStore";
+import useFrontendCacheStore from "../store/useFrontendCacheStore";
 
 // Fallback images from public folder (used if no banners from database)
 const fallbackImages = [
@@ -34,14 +34,24 @@ const fallbackImages = [
 ];
 
 const HeroBanner = () => {
-  const { getHeroBanners } = useBannerStore();
+  // Use centralized cache instead of individual banner store
+  const { getBanners } = useFrontendCacheStore();
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
 
-  // Get hero banners from store or use fallback
-  const heroBanners = getHeroBanners();
+  // Get hero banners from cache or use fallback
+  const allBanners = getBanners();
+  console.log('🎯 All banners from cache:', allBanners);
+  
+  // Filter for hero position banners that are active
+  const heroBanners = allBanners.filter(banner => 
+    banner.position === 'hero' && banner.active === true
+  );
+  console.log('🎯 Filtered hero banners:', heroBanners);
+  
   const images = heroBanners.length > 0 ? heroBanners : fallbackImages;
+  console.log('🎯 Final images for hero banner:', images);
 
   // Auto-advance the slider
   useEffect(() => {

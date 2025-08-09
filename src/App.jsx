@@ -41,6 +41,12 @@ import Header from "./components/Header";
 import Footer from "./components/Footer";
 import AdminLayout from "./components/Admin/AdminLayout";
 import { DeliveryAuthGuard } from "./components/Delivery";
+
+// 🔐 RBAC Components
+import RoleBasedRouteGuard from "./components/auth/RoleBasedRouteGuard";
+import { CustomerOnlyRoute, AdminOnlyRoute, DeliveryPartnerOnlyRoute, PublicRoute } from "./components/auth/RoleGuards";
+import RoleBasedRedirect from "./components/auth/RoleBasedRedirect";
+
 import {
   PartnerLogin,
   PartnerRegister,
@@ -69,7 +75,7 @@ import {
 import UnifiedRegistration from "./components/auth/UnifiedRegistration";
 import UnifiedLogin from "./pages/UnifiedLogin";
 import UnifiedDashboardRouter from "./components/UnifiedDashboardRouter";
-import ProtectedRoute, { UnauthorizedPage, RoleBasedRedirect } from "./components/ProtectedRoute";
+import ProtectedRoute, { UnauthorizedPage } from "./components/ProtectedRoute";
 
 import AdminSellPhone from "./pages/Admin/AdminSellPhone";
 import FirebaseOptimizationTest from "./components/FirebaseOptimizationTest";
@@ -103,26 +109,27 @@ const Layout = () => {
 
 const App = () => {
   const { isAuthenticated, checkAuthStatus } = useAuthStore();
-  const { isAuthenticated: isAdminAuthenticated, checkAdminAuthStatus } =
-    useAdminAuthStore();
+  const { checkAdminAuthStatus } = useAdminAuthStore();
   const { initializeTheme } = useThemeStore();
 
   // Initialize products and authentication
   React.useEffect(() => {
     const initializeStore = async () => {
       try {
-        // Initialize theme first
+        // 🚀 Initialize centralized frontend cache FIRST (replaces individual API calls)
+        const { default: useFrontendCacheStore } = await import('./store/useFrontendCacheStore');
+        await useFrontendCacheStore.getState().initializeCache();
+        console.log('✅ Frontend cache initialized - no more redundant API calls');
+        
+        // Initialize theme (now reads from cache)
         initializeTheme();
         
-        // Load theme from backend and apply (with better error handling)
+        // Load theme from cache (no API call needed)
         try {
-          const themeService = await import('./services/themeService');
-          await themeService.default.loadAndApplyTheme();
-          console.log('Theme loaded successfully from backend');
-        } catch (error) {
-          console.log('Theme service failed, loading custom colors from localStorage:', error.message);
-          // Fallback to localStorage custom colors
           loadCustomColors();
+          console.log('Theme loaded from cache/localStorage');
+        } catch (error) {
+          console.log('Theme fallback loaded:', error.message);
         }
         
         // Initialize authentication state from localStorage
@@ -135,13 +142,8 @@ const App = () => {
         const { useProductStore } = await import("./store/useProduct");
         await useProductStore.getState().fetchProducts();
 
-        // Initialize page content store - fetch available pages
-        const { usePageContentStore } = await import(
-          "./store/usePageContentStore"
-        );
-        await usePageContentStore.getState().fetchAvailablePages();
-        
-        console.log('App initialization completed successfully');
+        // Page content now comes from cache - no API call
+        console.log('App initialization completed with centralized caching');
       } catch (error) {
         console.error('App initialization failed:', error);
       }
@@ -180,11 +182,11 @@ const App = () => {
         {/* 🔄 LEGACY: Backward Compatibility Auth Routes */}
         <Route
           path="/signup"
-          element={!isAuthenticated ? <SignUp /> : <Navigate to="/" />}
+          element={!isAuthenticated ? <SignUp /> : <RoleBasedRedirect />}
         />
         <Route
           path="/login"
-          element={!isAuthenticated ? <Login /> : <Navigate to="/" />}
+          element={!isAuthenticated ? <Login /> : <RoleBasedRedirect />}
         />
         
         {/* Firebase Setup Route (Development) */}
@@ -192,72 +194,77 @@ const App = () => {
           path="/firebase-setup" 
           element={<FirebaseSetup />} 
         />
-        {/* Delivery Partner Routes - keeping these outside the main Layout */}
+        {/* Delivery Partner Routes - RBAC Protected */}
         <Route path="/delivery">
           {/* Public delivery routes */}
-          <Route path="login" element={<PartnerLogin />} />
-          <Route path="register" element={<PartnerRegister />} />
-          <Route path="admin-verify" element={<AdminVerify />} />
+          <Route path="login" element={<PublicRoute><PartnerLogin /></PublicRoute>} />
+          <Route path="register" element={<PublicRoute><PartnerRegister /></PublicRoute>} />
 
           {/* Protected Delivery Partner Routes */}
           <Route
             path="dashboard"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliveryDashboard />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
           <Route
             path="assignments"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliveryAssignmentList />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
           <Route
             path="update/:id"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliveryStatusUpdate />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
           <Route
             path="status-update"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliveryStatusUpdate />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
           <Route
             path="history"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliveryHistory />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
           <Route
             path="settings"
             element={
-              <DeliveryAuthGuard>
+              <DeliveryPartnerOnlyRoute>
                 <DeliverySettings />
-              </DeliveryAuthGuard>
+              </DeliveryPartnerOnlyRoute>
             }
           />
 
-          {/* Admin verification route for delivery partners */}
+          {/* Admin verification route for delivery partners - Admin Only */}
+          <Route
+            path="admin-verify"
+            element={
+              <AdminOnlyRoute redirectTo="/admin/login">
+                <AdminVerify />
+              </AdminOnlyRoute>
+            }
+          />
           <Route
             path="verification"
             element={
-              isAdminAuthenticated ? (
+              <AdminOnlyRoute redirectTo="/admin/login">
                 <AdminVerify />
-              ) : (
-                <Navigate to="/admin/login" />
-              )
+              </AdminOnlyRoute>
             }
           />
         </Route>
@@ -299,85 +306,35 @@ const App = () => {
           {/* This must be placed after all other specific routes to avoid conflicts */}
           <Route path="/:pagePath" element={<DynamicPage />} />
         </Route>
-        {/* Admin Routes */}
+        {/* Admin Routes - RBAC Protected */}
         <Route
           path="/admin"
-          element={
-            <Navigate to={isAdminAuthenticated ? "/admin/dashboard" : "/admin/login"} />
-          }
+          element={<Navigate to="/admin/dashboard" />}
         />
         <Route
           path="/admin/login"
-          element={
-            !isAdminAuthenticated ? (
-              <AdminLogin />
-            ) : (
-              <Navigate to="/admin/dashboard" />
-            )
-          }
+          element={<PublicRoute><AdminLogin /></PublicRoute>}
         />
         <Route
           path="/admin/register"
-          element={
-            !isAdminAuthenticated ? (
-              <AdminRegister />
-            ) : (
-              <Navigate to="/admin/dashboard" />
-            )
-          }
+          element={<PublicRoute><AdminRegister /></PublicRoute>}
         />
-        {isAdminAuthenticated && (
-          <Route element={<AdminLayout />}>
-            <Route
-              path="/admin/dashboard"
-              element={<AdminDashboard />}
-            />
-            <Route
-              path="/admin/firebase-test"
-              element={<FirebaseOptimizationTest />}
-            />
-            <Route
-              path="/admin/firebase-monitor"
-              element={<FirebaseOptimizationMonitor />}
-            />
-            <Route
-              path="/admin/products"
-              element={<AdminProducts />}
-            />
-            <Route
-              path="/admin/inventory"
-              element={<AdminInventory />}
-            />
-            <Route
-              path="/admin/orders"
-              element={<AdminOrders />}
-            />
-            <Route
-              path="/admin/users"
-              element={<AdminUsers />}
-            />
-            <Route
-              path="/admin/returns"
-              element={<AdminReturns />}
-            />
-            <Route
-              path="/admin/content"
-              element={<AdminContent />}
-            />
-            <Route
-              path="/admin/sell-phones"
-              element={<AdminSellPhone />}
-            />
-            <Route
-              path="/admin/reviews"
-              element={<AdminReviews />}
-            />
-            <Route
-              path="/admin/delivery-partners"
-              element={<AdminDeliveryPartners />}
-            />
-          </Route>
-        )};
+        
+        {/* Protected Admin Routes */}
+        <Route path="/admin" element={<AdminOnlyRoute><AdminLayout /></AdminOnlyRoute>}>
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="firebase-test" element={<FirebaseOptimizationTest />} />
+          <Route path="firebase-monitor" element={<FirebaseOptimizationMonitor />} />
+          <Route path="products" element={<AdminProducts />} />
+          <Route path="inventory" element={<AdminInventory />} />
+          <Route path="orders" element={<AdminOrders />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="returns" element={<AdminReturns />} />
+          <Route path="content" element={<AdminContent />} />
+          <Route path="sell-phones" element={<AdminSellPhone />} />
+          <Route path="reviews" element={<AdminReviews />} />
+          <Route path="delivery-partners" element={<AdminDeliveryPartners />} />
+        </Route>
         {/* Catch-all route for 404 Not Found */}
         <Route path="*" element={<Page404 />} />
       </Routes>

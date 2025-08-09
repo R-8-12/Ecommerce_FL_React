@@ -8,48 +8,42 @@ import StaticPromoBanners from "../components/ProductSections/StaticPromoBanners
 import BrandsSection from "../components/ProductSections/BrandsSection";
 import { useEffect, useState } from "react";
 import { useProductStore } from "../store/useProduct";
-import { useBannerStore } from "../store/Admin/useBannerStore";
-import useHomepageSectionStore from "../store/Admin/useHomepageSectionStore";
+import useFrontendCacheStore from "../store/useFrontendCacheStore";
 import ProductCard from "../components/ProductList/ProductCard";
 import Pagination from "../components/common/Pagination";
 import { Link } from "react-router-dom";
 
 const Home = () => {
   const { products, featuredProducts, fetchProducts } = useProductStore();
-  const { fetchPublicBanners } = useBannerStore();
-  const { sections, fetchSections, loading: sectionsLoading } = useHomepageSectionStore();
+  // Use centralized cache instead of individual stores
+  const { getHomepageSections, isLoading } = useFrontendCacheStore();
+  
   const [currentPage, setCurrentPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const PRODUCTS_PER_PAGE = 10;
+
+  // Get data from cache (no API calls needed)
+  const sections = getHomepageSections();
+  const sectionsLoading = isLoading('homepageSections');
   
   useEffect(() => {
     const initializeHomePage = async () => {
       try {
-        console.log('Initializing homepage...');
-        setIsLoading(true);
+        console.log('🏠 Initializing homepage with cached data...');
+        setIsLoadingProducts(true);
         
-        // Only fetch if we don't have products already
+        // Only fetch products if we don't have them already
         if (products.length === 0) {
           console.log('Fetching products...');
           await fetchProducts();
         }
         
-        console.log('Fetching public banners...');
-        await fetchPublicBanners(); // Fetch banners for the page
-        
-        // Fetch enabled homepage sections using public endpoint with fallback
-        console.log('Fetching homepage sections...');
-        try {
-          await fetchSections(true, true);
-        } catch (error) {
-          console.log('Homepage sections fetch failed, will use fallback rendering:', error.message);
-        }
-        
-        console.log('Homepage initialization completed');
+        // No need to fetch banners or homepage sections - they come from cache!
+        console.log('✅ Homepage initialized using cached data (no redundant API calls)');
       } catch (error) {
         console.error('Homepage initialization error:', error);
       } finally {
-        setIsLoading(false);
+        setIsLoadingProducts(false);
       }
     };
 
@@ -312,7 +306,7 @@ const Home = () => {
       style={{ backgroundColor: "var(--bg-secondary)" }}
       className="min-h-screen"
     >
-      {(sectionsLoading || isLoading) ? (
+      {(sectionsLoading || isLoadingProducts) ? (
         // Loading state for homepage sections
         <div className="flex justify-center items-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>

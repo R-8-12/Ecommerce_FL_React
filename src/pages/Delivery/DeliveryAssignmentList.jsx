@@ -104,11 +104,11 @@ const DeliveryAssignmentList = () => {
     setFilteredAssignments(formattedDeliveries);
 
     console.log(
-      "DeliveryAssignmentList rendered",
-      assignments,
-      filteredAssignments
+      "DeliveryAssignmentList assignments loaded:",
+      formattedDeliveries.length,
+      "deliveries"
     );
-  }, [assignedDeliveries, formatAddress, assignments, filteredAssignments]);
+  }, [assignedDeliveries, formatAddress]);
 
   const getPriority = (delivery) => {
     // Determine priority based on delivery data - can be customized
