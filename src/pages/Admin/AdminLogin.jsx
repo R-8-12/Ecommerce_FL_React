@@ -4,6 +4,7 @@ import FormWrapper from "../../components/ui/FormWrapper";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { useAdminAuthStore } from "../../store/Admin/useAdminAuth"; // Updated to use admin-specific auth store
+import { clearAdminAuth, checkAdminAuthStatus, devClearAuthAndReload } from "../../utils/clearAdminAuth";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -96,6 +97,23 @@ const AdminLogin = () => {
               Use credentials: <strong>admin / admin123</strong>
             </div>
           )}
+          
+          {/* Development auth clearing */}
+          <div className="mt-3 pt-2 border-t border-yellow-200 dark:border-yellow-800">
+            <div className="text-xs text-yellow-700 dark:text-yellow-300 mb-2">
+              Troubleshooting: If admin login redirects immediately to dashboard:
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                checkAdminAuthStatus();
+                devClearAuthAndReload();
+              }}
+              className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800 rounded-md hover:bg-red-200 dark:hover:bg-red-900/40 transition-colors"
+            >
+              Clear Stored Auth & Reload
+            </button>
+          </div>
         </div>
       )}
 

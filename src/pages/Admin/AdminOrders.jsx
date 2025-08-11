@@ -369,7 +369,7 @@ const AdminOrders = () => {
                 </button>
               </div>
             </div>
-            <OrderDetail order={selectedOrder} />
+            <OrderDetail order={selectedOrder} onOrderUpdate={fetchOrders} />
           </div>
         </div>
       )}

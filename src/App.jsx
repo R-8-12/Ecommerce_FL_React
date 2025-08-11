@@ -43,9 +43,10 @@ import AdminLayout from "./components/Admin/AdminLayout";
 import { DeliveryAuthGuard } from "./components/Delivery";
 
 // 🔐 RBAC Components
-import { CustomerOnlyRoute, AdminOnlyRoute, DeliveryPartnerOnlyRoute, PublicRoute } from "./components/auth/RoleGuards";
+import { CustomerOnlyRoute, AdminOnlyRoute, DeliveryPartnerOnlyRoute, PublicRoute, GuestOnlyRoute, AuthenticatedOnlyRoute } from "./components/auth/RoleGuards";
 import RoleBasedRouteGuard from "./components/auth/RoleBasedRouteGuard";
 import AdminRouteHandler from "./components/auth/AdminRouteHandler";
+import DeliveryRouteHandler from "./components/auth/DeliveryRouteHandler";
 import RoleBasedRedirect from "./components/auth/RoleBasedRedirect";
 
 import {
@@ -109,7 +110,7 @@ const Layout = () => {
 };
 
 const App = () => {
-  const { isAuthenticated, checkAuthStatus } = useAuthStore();
+  const { checkAuthStatus } = useAuthStore();
   const { checkAdminAuthStatus } = useAdminAuthStore();
   const { initializeTheme } = useThemeStore();
 
@@ -117,15 +118,10 @@ const App = () => {
   React.useEffect(() => {
     const initializeStore = async () => {
       try {
-        // 🚀 Initialize centralized frontend cache FIRST (replaces individual API calls)
-        const { default: useFrontendCacheStore } = await import('./store/useFrontendCacheStore');
-        await useFrontendCacheStore.getState().initializeCache();
-        console.log('✅ Frontend cache initialized - no more redundant API calls');
-        
-        // Initialize theme (now reads from cache)
+        // Initialize theme system (without loading theme data from API)
         initializeTheme();
         
-        // Load theme from cache (no API call needed)
+        // Load theme from cache/localStorage if available (no API call needed)
         try {
           loadCustomColors();
           console.log('Theme loaded from cache/localStorage');
@@ -169,9 +165,23 @@ const App = () => {
             }}
           />
           <Routes>
-        {/* 🔐 NEW: Unified RBAC Authentication Routes */}
-        <Route path="/unified-signup" element={<UnifiedRegistration />} />
-        <Route path="/unified-login" element={<UnifiedLogin />} />
+        {/* 🔐 NEW: Unified RBAC Authentication Routes - Guest Only */}
+        <Route 
+          path="/unified-signup" 
+          element={
+            <GuestOnlyRoute>
+              <UnifiedRegistration />
+            </GuestOnlyRoute>
+          } 
+        />
+        <Route 
+          path="/unified-login" 
+          element={
+            <GuestOnlyRoute>
+              <UnifiedLogin />
+            </GuestOnlyRoute>
+          } 
+        />
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <UnifiedDashboardRouter />
@@ -180,14 +190,22 @@ const App = () => {
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/rbac-redirect" element={<RoleBasedRedirect />} />
 
-        {/* 🔄 LEGACY: Backward Compatibility Auth Routes */}
+        {/* 🔄 LEGACY: Backward Compatibility Auth Routes - Guest Only */}
         <Route
           path="/signup"
-          element={!isAuthenticated ? <SignUp /> : <RoleBasedRedirect />}
+          element={
+            <GuestOnlyRoute>
+              <SignUp />
+            </GuestOnlyRoute>
+          }
         />
         <Route
           path="/login"
-          element={!isAuthenticated ? <Login /> : <RoleBasedRedirect />}
+          element={
+            <GuestOnlyRoute>
+              <Login />
+            </GuestOnlyRoute>
+          }
         />
         
         {/* Firebase Setup Route (Development) */}
@@ -197,16 +215,32 @@ const App = () => {
         />
         {/* Delivery Partner Routes - RBAC Protected */}
         <Route path="/delivery">
-          {/* Public delivery routes */}
-          <Route path="login" element={<PublicRoute><PartnerLogin /></PublicRoute>} />
-          <Route path="register" element={<PublicRoute><PartnerRegister /></PublicRoute>} />
+          {/* Public delivery routes - Guest Only */}
+          <Route 
+            path="login" 
+            element={
+              <GuestOnlyRoute>
+                <PartnerLogin />
+              </GuestOnlyRoute>
+            } 
+          />
+          <Route 
+            path="register" 
+            element={
+              <GuestOnlyRoute>
+                <PartnerRegister />
+              </GuestOnlyRoute>
+            } 
+          />
 
           {/* Protected Delivery Partner Routes */}
           <Route
             path="dashboard"
             element={
               <DeliveryPartnerOnlyRoute>
-                <DeliveryDashboard />
+                <DeliveryRouteHandler>
+                  <DeliveryDashboard />
+                </DeliveryRouteHandler>
               </DeliveryPartnerOnlyRoute>
             }
           />
@@ -214,7 +248,9 @@ const App = () => {
             path="assignments"
             element={
               <DeliveryPartnerOnlyRoute>
-                <DeliveryAssignmentList />
+                <DeliveryRouteHandler>
+                  <DeliveryAssignmentList />
+                </DeliveryRouteHandler>
               </DeliveryPartnerOnlyRoute>
             }
           />
@@ -222,7 +258,9 @@ const App = () => {
             path="update/:id"
             element={
               <DeliveryPartnerOnlyRoute>
-                <DeliveryStatusUpdate />
+                <DeliveryRouteHandler>
+                  <DeliveryStatusUpdate />
+                </DeliveryRouteHandler>
               </DeliveryPartnerOnlyRoute>
             }
           />
@@ -269,50 +307,223 @@ const App = () => {
             }
           />
         </Route>
-        {/* Public Routes with Layout (allow admin access to homepage but block delivery partners) */}
+        {/* Public Routes with Layout (guests and authenticated users) */}
         <Route element={<Layout />}>
+          {/* Homepage - accessible to guests, customers, and admins */}
           <Route
             path="/"
             element={
-              <AdminRouteHandler>
-                <Home />
-              </AdminRouteHandler>
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <AdminRouteHandler>
+                  <Home />
+                </AdminRouteHandler>
+              </RoleBasedRouteGuard>
             }
           />
-          <Route path="/products" element={<ProductList />} />
-          <Route path="/products/:id" element={<Product />} />
-          <Route path="/category/:category" element={<ProductList />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/wishlist" element={<Wishlist />} />
-          <Route path="/gamification" element={<GamificationDashboard />} />
-          <Route path="/orders" element={<OrderStatus />} />
-          <Route path="/order-tracking" element={<OrderTracking />} />
-          <Route path="/order-tracking/:id" element={<OrderTrackingDetail />} />
-          <Route path="/search" element={<SearchResults />} />
-          <Route path="/dynamic-page" element={<DynamicPage />} />
-          {/* Footer Pages */}
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/track-order" element={<TrackOrder />} />
-          <Route path="/bulk-order" element={<BulkOrder />} />
-          <Route path="/terms-conditions" element={<TermsConditions />} />
+          
+          {/* Product browsing - accessible to all */}
+          <Route 
+            path="/products" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <ProductList />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/products/:id" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <Product />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/category/:category" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <ProductList />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/search" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <SearchResults />
+              </RoleBasedRouteGuard>
+            } 
+          />
+
+          {/* Customer-only routes - require authentication */}
+          <Route 
+            path="/cart" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <Cart />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/wishlist" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <Wishlist />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/orders" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <OrderStatus />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/order-tracking" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <OrderTracking />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/order-tracking/:id" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <OrderTrackingDetail />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/gamification" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <GamificationDashboard />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/profile" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <Account />
+              </CustomerOnlyRoute>
+            } 
+          />
+          <Route 
+            path="/profile/:section" 
+            element={
+              <CustomerOnlyRoute redirectTo="/login">
+                <Account />
+              </CustomerOnlyRoute>
+            } 
+          />
+
+          {/* Authenticated user routes (customers and admins) */}
+          <Route 
+            path="/track-order" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login">
+                <TrackOrder />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/bulk-order" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login">
+                <BulkOrder />
+              </RoleBasedRouteGuard>
+            } 
+          />
+
+          {/* Public information pages - accessible to all */}
+          <Route 
+            path="/about" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <About />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/contact" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <Contact />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/our-stores" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <OurStores />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          
+          {/* Policy pages - accessible to all */}
+          <Route 
+            path="/terms-conditions" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <TermsConditions />
+              </RoleBasedRouteGuard>
+            } 
+          />
           <Route
             path="/cancellation-refund-policy"
-            element={<CancellationRefundPolicy />}
-          />{" "}
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <CancellationRefundPolicy />
+              </RoleBasedRouteGuard>
+            }
+          />
+          <Route 
+            path="/privacy-policy" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <PrivacyPolicy />
+              </RoleBasedRouteGuard>
+            } 
+          />
           <Route
             path="/shipping-delivery-policy"
-            element={<ShippingDeliveryPolicy />}
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <ShippingDeliveryPolicy />
+              </RoleBasedRouteGuard>
+            }
           />
-          <Route path="/our-stores" element={<OurStores />} />
-          <Route path="/warranty-policy" element={<WarrantyPolicy />} />
-          {/* Account Routes */}
-          <Route path="/profile" element={<Account />} />
-          <Route path="/profile/:section" element={<Account />} />
-          {/* Dynamic Content Pages - Custom pages created by admin */}
-          {/* This must be placed after all other specific routes to avoid conflicts */}
-          <Route path="/:pagePath" element={<DynamicPage />} />
+          <Route 
+            path="/warranty-policy" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <WarrantyPolicy />
+              </RoleBasedRouteGuard>
+            } 
+          />
+
+          {/* Dynamic pages - accessible to all */}
+          <Route 
+            path="/dynamic-page" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <DynamicPage />
+              </RoleBasedRouteGuard>
+            } 
+          />
+          <Route 
+            path="/:pagePath" 
+            element={
+              <RoleBasedRouteGuard allowedRoles={["customer", "guest", "admin"]}>
+                <DynamicPage />
+              </RoleBasedRouteGuard>
+            } 
+          />
         </Route>
         {/* Admin Routes - RBAC Protected */}
         <Route
@@ -321,11 +532,19 @@ const App = () => {
         />
         <Route
           path="/admin/login"
-          element={<PublicRoute><AdminLogin /></PublicRoute>}
+          element={
+            <GuestOnlyRoute>
+              <AdminLogin />
+            </GuestOnlyRoute>
+          }
         />
         <Route
           path="/admin/register"
-          element={<PublicRoute><AdminRegister /></PublicRoute>}
+          element={
+            <GuestOnlyRoute>
+              <AdminRegister />
+            </GuestOnlyRoute>
+          }
         />
         
         {/* Protected Admin Routes */}

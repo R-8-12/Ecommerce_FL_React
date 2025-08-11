@@ -213,6 +213,106 @@ export const useDeliveryPartnerStore = create(
         throw error;
       }
     },
+
+    // OTP Verification for Delivery Completion
+    initiateDeliveryWithOTP: async (orderId) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await deliveryApi.post(
+          `/partners/deliveries/initiate-otp/${orderId}/`
+        );
+        
+        set({ loading: false, error: null });
+        return response.data; // Should return { otp_sent: true, message: "OTP sent to customer" }
+      } catch (error) {
+        set({
+          loading: false,
+          error: error.response?.data?.error || "Failed to send OTP to customer",
+        });
+        throw error;
+      }
+    },
+
+    // Complete delivery with OTP verification
+    completeDeliveryWithOTP: async (orderId, otp, deliveryNotes = "") => {
+      set({ loading: true, error: null });
+      try {
+        const response = await deliveryApi.post(
+          `/partners/deliveries/complete-with-otp/${orderId}/`,
+          { 
+            otp, 
+            delivery_notes: deliveryNotes,
+            completion_time: new Date().toISOString()
+          }
+        );
+
+        // Update the local state by fetching fresh data
+        await useDeliveryPartnerStore.getState().fetchAssignedDeliveries();
+        await useDeliveryPartnerStore.getState().fetchDeliveryHistory();
+
+        set({ loading: false, error: null });
+        return response.data;
+      } catch (error) {
+        set({
+          loading: false,
+          error: error.response?.data?.error || "Failed to complete delivery. Please verify OTP.",
+        });
+        throw error;
+      }
+    },
+
+    // Mark delivery as failed (customer rejection)
+    markDeliveryFailed: async (orderId, reason, returnToWarehouse = true) => {
+      set({ loading: true, error: null });
+      try {
+        const response = await deliveryApi.post(
+          `/partners/deliveries/mark-failed/${orderId}/`,
+          { 
+            failure_reason: reason,
+            return_to_warehouse: returnToWarehouse,
+            failure_time: new Date().toISOString()
+          }
+        );
+
+        // Update the local state by fetching fresh data
+        await useDeliveryPartnerStore.getState().fetchAssignedDeliveries();
+
+        set({ loading: false, error: null });
+        return response.data;
+      } catch (error) {
+        set({
+          loading: false,
+          error: error.response?.data?.error || "Failed to mark delivery as failed",
+        });
+        throw error;
+      }
+    },
+
+    // Return to warehouse
+    returnToWarehouse: async (orderId, returnReason = "") => {
+      set({ loading: true, error: null });
+      try {
+        const response = await deliveryApi.post(
+          `/partners/deliveries/return-to-warehouse/${orderId}/`,
+          { 
+            return_reason: returnReason,
+            return_time: new Date().toISOString()
+          }
+        );
+
+        // Update the local state by fetching fresh data
+        await useDeliveryPartnerStore.getState().fetchAssignedDeliveries();
+
+        set({ loading: false, error: null });
+        return response.data;
+      } catch (error) {
+        set({
+          loading: false,
+          error: error.response?.data?.error || "Failed to return to warehouse",
+        });
+        throw error;
+      }
+    },
   }))
 );
 

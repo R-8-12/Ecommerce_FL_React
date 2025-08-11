@@ -319,7 +319,7 @@ const SpinWheelCanvas = ({ isOpen, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="absolute inset-0 bg-black bg-opacity-20 backdrop-blur-md"
+          className="absolute inset-0 backdrop-blur-md"
           onClick={resetAndClose}
         />
         

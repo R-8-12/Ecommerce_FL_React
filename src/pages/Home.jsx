@@ -4,7 +4,6 @@ import FeaturedProductList from "../components/FeaturedProductList";
 import HeroBanner from "../components/HeroBanner";
 import BestSellingSection from "../components/ProductSections/BestSellingSection";
 import NewReleasesSection from "../components/ProductSections/NewReleasesSection";
-import StaticPromoBanners from "../components/ProductSections/StaticPromoBanners";
 import BrandsSection from "../components/ProductSections/BrandsSection";
 import { useEffect, useState } from "react";
 import { useProductStore } from "../store/useProduct";
@@ -184,7 +183,16 @@ const Home = () => {
 
       case 'static_promo_banners':
         return (
-          <StaticPromoBanners key={section.section_id} />
+          <div key={section.section_id}>
+            {/* Static promo banners section removed - admin can now fully control homepage sections */}
+            <div style={{ backgroundColor: "var(--bg-primary)" }} className="py-4">
+              <div className="container mx-auto px-4">
+                <p style={{ color: "var(--text-secondary)" }} className="text-center">
+                  This section is now under admin control. Configure it in the admin panel.
+                </p>
+              </div>
+            </div>
+          </div>
         );
 
       case 'newsletter':
@@ -393,10 +401,7 @@ const Home = () => {
           {/* New Releases Section */}
           <NewReleasesSection products={products.filter(p => p.isNew || p.featured).slice(0, 8)} />
 
-          {/* Static Promotional Banners */}
-          <StaticPromoBanners />
-
-          {/* Brands Section */}
+          {/* Brands Section - Removed StaticPromoBanners to give admin full control */}
           <BrandsSection />
 
           {/* Promotional Banners */}

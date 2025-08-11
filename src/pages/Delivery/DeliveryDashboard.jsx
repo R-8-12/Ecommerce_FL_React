@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 import { DeliveryLayout } from "../../components/Delivery";
 import { DeliveryStatusModal } from "../../components/Delivery";
+import OTPDeliveryModal from "../../components/Delivery/OTPDeliveryModal";
 import useDeliveryPartnerStore from "../../store/Delivery/useDeliveryPartnerStore";
 import { toast } from "../../utils/toast";
 
@@ -31,6 +32,10 @@ const DeliveryDashboard = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  
+  // OTP Delivery Modal state
+  const [isOTPModalOpen, setIsOTPModalOpen] = useState(false);
+  const [selectedOTPDelivery, setSelectedOTPDelivery] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -530,6 +535,17 @@ const DeliveryDashboard = () => {
 
   // Handle status update
   const handleStatusUpdate = async (orderId, status, additionalData) => {
+    // If trying to mark as delivered, use OTP modal for final verification
+    if (status === "delivered" || status === "Delivered") {
+      // Close the regular status modal
+      setIsModalOpen(false);
+      
+      // Open OTP modal with the delivery data - OTP will be sent from the modal
+      setSelectedOTPDelivery(selectedDelivery);
+      setIsOTPModalOpen(true);
+      return;
+    }
+
     setIsUpdatingStatus(true);
     try {
       // Update status using the store function
@@ -560,6 +576,36 @@ const DeliveryDashboard = () => {
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  // OTP Modal handlers
+  const handleOTPModalClose = () => {
+    setIsOTPModalOpen(false);
+    setSelectedOTPDelivery(null);
+  };
+
+  const handleOTPSuccess = (updatedDelivery) => {
+    // Update local state with the completed delivery
+    setRecentDeliveries((prev) =>
+      prev.map((delivery) =>
+        delivery.id === updatedDelivery.id 
+          ? { ...delivery, status: updatedDelivery.status } 
+          : delivery
+      )
+    );
+
+    setUpcomingDeliveries((prev) =>
+      prev.map((delivery) =>
+        delivery.id === updatedDelivery.id 
+          ? { ...delivery, status: updatedDelivery.status } 
+          : delivery
+      )
+    );
+
+    // Close the OTP modal
+    handleOTPModalClose();
+    
+    toast.success("Delivery completed successfully!");
   };
 
   return (
@@ -1002,6 +1048,14 @@ const DeliveryDashboard = () => {
         delivery={selectedDelivery}
         onStatusUpdate={handleStatusUpdate}
         isSubmitting={isUpdatingStatus}
+      />
+
+      {/* OTP Delivery Modal */}
+      <OTPDeliveryModal
+        isOpen={isOTPModalOpen}
+        onClose={handleOTPModalClose}
+        delivery={selectedOTPDelivery}
+        onSuccess={handleOTPSuccess}
       />
     </DeliveryLayout>
   );

@@ -64,6 +64,30 @@ export const applyColorsToDocument = (colors) => {
     if (colors.warning) root.style.setProperty('--color-warning', colors.warning);
     if (colors.info) root.style.setProperty('--color-info', colors.info);
     
+    // Apply missing variables needed by DeliveryLayout
+    // Set dark theme variables for sidebar and navigation
+    const darkBg = colors.primary ? adjustColorBrightness(colors.primary, -60) : '#1F2937';
+    const darkText = '#F9FAFB';
+    const darkBorder = colors.primary ? adjustColorBrightness(colors.primary, -40) : '#374151';
+    
+    root.style.setProperty('--bg-dark', darkBg);
+    root.style.setProperty('--text-on-dark-bg', darkText);
+    root.style.setProperty('--border-dark', darkBorder);
+    
+    // Ensure all layout variables are set with proper fallbacks
+    if (!root.style.getPropertyValue('--shadow-small')) {
+      root.style.setProperty('--shadow-small', '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)');
+    }
+    if (!root.style.getPropertyValue('--shadow-medium')) {
+      root.style.setProperty('--shadow-medium', '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)');
+    }
+    if (!root.style.getPropertyValue('--rounded-lg')) {
+      root.style.setProperty('--rounded-lg', '8px');
+    }
+    if (!root.style.getPropertyValue('--rounded-md')) {
+      root.style.setProperty('--rounded-md', '6px');
+    }
+    
     // Update gradients to use custom primary color
     if (colors.primary) {
       const primaryHover = adjustColorBrightness(colors.primary, -10);
@@ -94,6 +118,9 @@ export const applyColorsToDocument = (colors) => {
         --brand-primary-hover: ${primaryHover} !important;
         --color-primary: ${colors.primary} !important;
         --color-primary-hover: ${primaryHover} !important;
+        --bg-dark: ${darkBg} !important;
+        --text-on-dark-bg: ${darkText} !important;
+        --border-dark: ${darkBorder} !important;
       `);
     }
     if (colors.secondary) {
@@ -128,12 +155,13 @@ export const applyColorsToDocument = (colors) => {
     }
     
     const cssContent = darkModeOverrides.length > 0 
-      ? `.dark { ${darkModeOverrides.join('')} }` 
+      ? `.dark { ${darkModeOverrides.join('')} } :root { ${darkModeOverrides.join('')} }` 
       : '';
     
     styleElement.textContent = cssContent;
     
-    console.log('Colors applied to document (light and dark mode):', colors);
+    console.log('Colors applied to document (light and dark mode with layout variables):', colors);
+    console.log('Added layout variables:', { darkBg, darkText, darkBorder });
   } catch (error) {
     console.error('Error applying colors to document:', error);
   }

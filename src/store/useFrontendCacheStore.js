@@ -123,8 +123,12 @@ const useFrontendCacheStore = create(
       contextCache: getStoredData(STORAGE_KEYS.CONTEXT_CACHE) || {
         homepage: {},
         admin: {},
+        delivery: {},
         shared: {}
       },
+      
+      // Track recent initializations to prevent duplicates
+      recentInitializations: {},
       
       // Loading states
       loading: {
@@ -146,22 +150,39 @@ const useFrontendCacheStore = create(
 
       // Context-aware initialization to prevent duplicate calls
       initializeCacheWithContext: async (context = 'homepage', force = false) => {
-        const { contextCache } = get();
+        const { contextCache, recentInitializations } = get();
+        const now = Date.now();
+        
+        // Prevent duplicate initializations within 5 seconds
+        const DEBOUNCE_TIME = 5000; // 5 seconds
+        if (!force && recentInitializations[context] && (now - recentInitializations[context]) < DEBOUNCE_TIME) {
+          console.log(`⏳ ${context}: Skipping initialization - recently completed (${(now - recentInitializations[context])/1000}s ago)`);
+          return get().cache;
+        }
+        
+        // Mark this context as being initialized
+        set(state => ({
+          recentInitializations: {
+            ...state.recentInitializations,
+            [context]: now
+          }
+        }));
         
         // Check if this context already has loaded data
         const contextData = contextCache[context] || {};
-        const now = Date.now();
         
         // Define what data each context needs
         const contextRequirements = {
           homepage: ['theme', 'banners', 'footer', 'homepageSections', 'brands', 'categories', 'logo'],
           admin: ['theme', 'footer', 'logo'], // Admin should NOT call banners/homepage sections/brands/categories
+          delivery: ['theme', /*'footer', 'logo'*/], // Delivery partners need theme, footer, and logo like admin - expanded for better theme consistency
           shared: ['theme', 'footer', 'logo'] // Minimal shared data
         };
         
         const requiredData = contextRequirements[context] || contextRequirements.shared;
         
         console.log(`🎯 Initializing ${context} context cache with requirements:`, requiredData);
+        console.log(`📊 Current context cache state:`, contextCache);
         
         // Check what data is missing or stale for this context
         const fetchPromises = [];
@@ -176,13 +197,20 @@ const useFrontendCacheStore = create(
           const allContexts = Object.values(contextCache);
           const anyRecentFetch = allContexts.some(ctx => ctx[dataType] && (now - ctx[dataType]) < maxAge);
           
-          if (force || (!lastFetch && !anyRecentFetch) || (isStale && !anyRecentFetch)) {
+          // Also check if data exists in our current cache
+          const hasDataInCache = get().cache[dataType] && (
+            Array.isArray(get().cache[dataType]) ? get().cache[dataType].length > 0 : 
+            typeof get().cache[dataType] === 'object' ? Object.keys(get().cache[dataType]).length > 0 :
+            get().cache[dataType] !== null
+          );
+          
+          if (force || (!lastFetch && !anyRecentFetch && !hasDataInCache) || (isStale && !anyRecentFetch && !hasDataInCache)) {
             needsFetch[dataType] = true;
-            console.log(`📥 ${context}: Fetching ${dataType}...`);
-          } else if (anyRecentFetch) {
-            console.log(`✅ ${context}: Using cross-context cached ${dataType}`);
+            console.log(`📥 ${context}: Fetching ${dataType}... (lastFetch: ${lastFetch}, isStale: ${isStale}, hasCache: ${hasDataInCache})`);
+          } else if (anyRecentFetch || hasDataInCache) {
+            console.log(`✅ ${context}: Using cached ${dataType} (anyRecentFetch: ${anyRecentFetch}, hasCache: ${hasDataInCache})`);
           } else {
-            console.log(`✅ ${context}: Using cached ${dataType}`);
+            console.log(`✅ ${context}: Using context cached ${dataType}`);
           }
         }
         

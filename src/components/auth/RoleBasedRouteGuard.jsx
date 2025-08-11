@@ -4,7 +4,7 @@ import { useAuthStore } from '../../store/useAuth';
 import { useAdminAuthStore } from '../../store/Admin/useAdminAuth';
 import { useDeliveryPartnerStore } from '../../store/Delivery/useDeliveryPartnerStore';
 
-const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/' }) => {
+const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/', requireAuth = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -33,8 +33,16 @@ const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/' }) 
       currentRole,
       isAuthenticated,
       allowedRoles,
+      requireAuth,
       currentPath: location.pathname
     });
+
+    // If authentication is required and user is not authenticated
+    if (requireAuth && !isAuthenticated) {
+      console.log('🚫 Authentication required but user not authenticated. Redirecting to:', redirectTo);
+      navigate(redirectTo, { replace: true, state: { from: location } });
+      return;
+    }
 
     // If no roles specified, allow access (public route)
     if (allowedRoles.length === 0) {
@@ -64,16 +72,17 @@ const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/' }) 
           navigate('/', { replace: true });
           return;
         }
-      } else {
+      } else if (currentRole === 'guest') {
         // Guest users trying to access protected routes
-        navigate(redirectTo, { replace: true });
+        console.log('🚫 Guest trying to access protected route. Redirecting to:', redirectTo);
+        navigate(redirectTo, { replace: true, state: { from: location } });
         return;
       }
     }
   }, [
     isCustomerAuth, isAdminAuth, isDeliveryPartnerAuth,
     user, admin, partner,
-    allowedRoles, location.pathname, navigate, redirectTo
+    allowedRoles, requireAuth, location, navigate, redirectTo
   ]);
 
   // Determine current role for rendering

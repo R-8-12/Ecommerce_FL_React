@@ -17,7 +17,7 @@ import Button from "../../ui/Button";
 import useAdminStore from "../../../store/Admin/useAdminStore";
 import { toast } from "react-hot-toast";
 
-const OrderDetail = ({ order }) => {
+const OrderDetail = ({ order, onOrderUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedOrder, setEditedOrder] = useState({});
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -106,8 +106,10 @@ const OrderDetail = ({ order }) => {
       setShowAssignModal(false);
       setSelectedPartnerId(""); // Reset selected partner
       toast.success("Delivery partner assigned successfully!");
-      // Optionally, refresh orders to see the update immediately
-      // fetchOrders();
+      // Refresh orders to see the update immediately
+      if (onOrderUpdate) {
+        onOrderUpdate();
+      }
     } catch (error) {
       // The error thrown from the store should be caught here
       toast.error(error.message || "Failed to assign delivery partner");
@@ -774,7 +776,7 @@ const OrderDetail = ({ order }) => {
 
       {/* Assign Delivery Partner Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-20 backdrop-blur-md flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50">
           <div
             className="bg-white rounded-lg p-6 max-w-md w-full mx-4"
             style={{
