@@ -193,6 +193,21 @@ const AdminLayout = () => {
           className="p-4 border-t border-opacity-20"
           style={{ borderColor: "var(--border-dark)" }}
         >
+          {/* Admin Profile Link */}
+          <Link
+            to="/admin/profile"
+            className="flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700 hover:bg-opacity-30 transition-all duration-150 text-sm"
+            style={{ 
+              borderRadius: "var(--rounded-md)",
+              backgroundColor: location.pathname === "/admin/profile" ? "var(--brand-primary)" : "transparent",
+              color: location.pathname === "/admin/profile" ? "var(--text-on-brand)" : "var(--text-on-dark-bg)",
+            }}
+          >
+            <FiUsers size={20} />
+            {!collapsed && <span className="ml-3">My Profile</span>}
+          </Link>
+          
+          {/* Visit Homepage Link */}
           <Link
             to="/"
             className="flex items-center px-4 py-2 rounded-md hover:bg-gray-700 hover:bg-opacity-30 transition-all duration-150 text-sm"

@@ -36,6 +36,7 @@ import {
 import { useAuthStore } from "./store/useAuth";
 import { useAdminAuthStore } from "./store/Admin/useAdminAuth";
 import useThemeStore from "./store/useTheme";
+import useFrontendCacheStore from "./store/useFrontendCacheStore";
 import { loadCustomColors } from "./utils/colorUtils";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
@@ -72,6 +73,7 @@ import {
   AdminContent,
   AdminDeliveryPartners,
 } from "./pages/Admin";
+import AdminProfile from "./pages/Admin/AdminProfile";
 
 // 🔐 NEW: Unified RBAC System Components
 import UnifiedRegistration from "./components/auth/UnifiedRegistration";
@@ -82,11 +84,15 @@ import ProtectedRoute, { UnauthorizedPage } from "./components/ProtectedRoute";
 import AdminSellPhone from "./pages/Admin/AdminSellPhone";
 import FirebaseOptimizationTest from "./components/FirebaseOptimizationTest";
 import FirebaseOptimizationMonitor from "./components/FirebaseOptimizationMonitor";
+import FirebaseOptimizationValidator from "./components/FirebaseOptimizationValidator";
 import FirebaseSetup from "./components/FirebaseSetup";
 
 import ErrorBoundary from "./components/ErrorBoundary";
 import Page404 from "./pages/Page404";
 import GamificationIntegration from "./components/gamification/GamificationIntegration";
+
+// Import debug components (only loaded in development)
+import { AuthDebugger } from './imports/debugComponents';
 import GamificationDashboard from "./pages/GamificationDashboard";
 
 // Layout component that will be used across all pages
@@ -110,9 +116,10 @@ const Layout = () => {
 };
 
 const App = () => {
-  const { checkAuthStatus } = useAuthStore();
-  const { checkAdminAuthStatus } = useAdminAuthStore();
+  const { checkAuthStatus, isAuthenticated } = useAuthStore();
+  const { checkAdminAuthStatus, isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const { initializeTheme } = useThemeStore();
+  const { fetchBanners } = useFrontendCacheStore();
 
   // Initialize products and authentication
   React.useEffect(() => {
@@ -153,6 +160,13 @@ const App = () => {
   useEffect(() => {
     initializeTheme();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  
+  // Refresh banners when authentication state changes
+  useEffect(() => {
+    // When auth state changes, force refresh the banners
+    console.log('Auth state changed, refreshing banners...');
+    fetchBanners('homepage');
+  }, [isAuthenticated, isAdminAuth, fetchBanners]);
 
   return (
     <ErrorBoundary>
@@ -552,6 +566,7 @@ const App = () => {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="firebase-test" element={<FirebaseOptimizationTest />} />
           <Route path="firebase-monitor" element={<FirebaseOptimizationMonitor />} />
+          <Route path="firebase-validator" element={<FirebaseOptimizationValidator />} />
           <Route path="products" element={<AdminProducts />} />
           <Route path="inventory" element={<AdminInventory />} />
           <Route path="orders" element={<AdminOrders />} />
@@ -561,6 +576,7 @@ const App = () => {
           <Route path="sell-phones" element={<AdminSellPhone />} />
           <Route path="reviews" element={<AdminReviews />} />
           <Route path="delivery-partners" element={<AdminDeliveryPartners />} />
+          <Route path="profile" element={<AdminProfile />} />
         </Route>
         {/* Catch-all route for 404 Not Found */}
         <Route path="*" element={<Page404 />} />
@@ -569,6 +585,9 @@ const App = () => {
       
       {/* Global Gamification Integration - provides modals for all pages */}
       <GamificationIntegration />
+      
+      {/* Auth Debugger - only visible in development */}
+      {process.env.NODE_ENV === 'development' && <AuthDebugger />}
     </BrowserRouter>
     </SimpleThemeProvider>
     </ErrorBoundary>

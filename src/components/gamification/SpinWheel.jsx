@@ -1,13 +1,13 @@
 /**
- * Spin Wheel Component - Canvas Implementation
+ * Spin Wheel Component - Enhanced Implementation
  * Interactive spin wheel for daily rewards and gamification
- * Using canvas-based rendering with precise mathematical calculations
+ * Using improved visual design with better animations and centered spin button
  */
 
-import SpinWheelCanvas from './SpinWheelCanvas';
+import EnhancedSpinWheel from './EnhancedSpinWheel';
 
 const SpinWheel = ({ isOpen, onClose }) => {
-  return <SpinWheelCanvas isOpen={isOpen} onClose={onClose} />;
+  return <EnhancedSpinWheel isOpen={isOpen} onClose={onClose} />;
 };
 
 export default SpinWheel;

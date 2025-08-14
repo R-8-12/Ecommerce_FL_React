@@ -450,16 +450,32 @@ const useFrontendCacheStore = create(
           
           console.log('🎯 Banners data received:', bannersData);
           
-          set(state => ({
-            cache: { ...state.cache, banners: bannersData },
-            loading: { ...state.loading, banners: false },
-            errors: { ...state.errors, banners: null }
-          }));
+          // Ensure we're getting real banners, filter out any null or incomplete entries
+          const validBanners = bannersData.filter(banner => 
+            banner && banner.image && (banner.title || banner.subtitle || banner.description)
+          );
           
-          setStoredData(STORAGE_KEYS.BANNERS, bannersData);
-          setLastFetchTime(STORAGE_KEYS.BANNERS);
-          
-          return bannersData;
+          if (validBanners.length > 0) {
+            console.log('🎯 Valid banners found:', validBanners.length);
+            
+            set(state => ({
+              cache: { ...state.cache, banners: validBanners },
+              loading: { ...state.loading, banners: false },
+              errors: { ...state.errors, banners: null }
+            }));
+            
+            setStoredData(STORAGE_KEYS.BANNERS, validBanners);
+            setLastFetchTime(STORAGE_KEYS.BANNERS);
+            
+            return validBanners;
+          } else {
+            console.warn('🎯 No valid banners found in API response, using default banners');
+            set(state => ({
+              loading: { ...state.loading, banners: false },
+              errors: { ...state.errors, banners: 'No valid banners found' }
+            }));
+            return get().cache.banners;
+          }
         } catch (error) {
           console.warn('🎯 Using cached banner data:', error.message);
           set(state => ({
@@ -804,6 +820,15 @@ const useFrontendCacheStore = create(
         });
         
         console.log('✅ Cache cleared successfully');
+      },
+
+      updateGamification: () => {
+        console.log('♻️ Invalidating gamification cache...');
+        // Clear any gamification related cached data
+        // This will force frontend components to refetch gamification settings
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gamificationUpdated'));
+        }
       },
 
       // Get methods for easy access

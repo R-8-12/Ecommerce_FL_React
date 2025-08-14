@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:api": "node src/tests/run_api_tests.js"
   },
   "dependencies": {
     "@ckeditor/ckeditor5-build-classic": "^39.0.2",

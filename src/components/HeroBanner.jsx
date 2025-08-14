@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion'; // Used for JSX motion 
 import { useNavigate, Link } from "react-router-dom";
 import Button from "./ui/Button";
 import useFrontendCacheStore from "../store/useFrontendCacheStore";
+import { useAuthStore } from "../store/useAuth";
+import { useAdminAuthStore } from "../store/Admin/useAdminAuth";
 
 // Fallback images from public folder (used if no banners from database)
 const fallbackImages = [
@@ -35,10 +37,18 @@ const fallbackImages = [
 
 const HeroBanner = () => {
   // Use centralized cache instead of individual banner store
-  const { getBanners } = useFrontendCacheStore();
+  const { getBanners, fetchBanners } = useFrontendCacheStore();
+  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(1);
+
+  // Fetch banners when auth state changes
+  useEffect(() => {
+    console.log('🎯 Auth state changed in hero banner, refreshing banners...');
+    fetchBanners('homepage');
+  }, [isAuthenticated, isAdminAuth, fetchBanners]);
 
   // Get hero banners from cache or use fallback
   const allBanners = getBanners();

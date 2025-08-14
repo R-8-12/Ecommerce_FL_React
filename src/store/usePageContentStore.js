@@ -41,6 +41,8 @@ export const usePageContentStore = create((set, get) => ({
   // Fetch page content from the API
   fetchPageContent: async (pagePath) => {
     set({ loading: true, error: null, content: null });
+
+    
     try {
       // Use the public endpoint to get page content
       const response = await adminApi.get(

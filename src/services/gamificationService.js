@@ -3,7 +3,7 @@
  * Handles all gamification-related API calls including wallet, coins, rewards, and spin wheel
  */
 
-import api from './api';
+import api, { adminApi } from './api';
 import { API_URL } from '../utils/constants';
 
 class GamificationService {
@@ -11,15 +11,100 @@ class GamificationService {
         this.baseURL = `${API_URL}/users`;
     }
 
+    // Helper method to determine which API instance to use
+    getApiInstance() {
+        // Check if admin user is authenticated
+        const adminUser = localStorage.getItem('admin_user');
+        const adminToken = localStorage.getItem('admin_token');
+        
+        if (adminUser && adminToken) {
+            return adminApi;
+        }
+        
+        return api;
+    }
+
     // Wallet Management
     async getWallet() {
         try {
-            const response = await api.get('/users/wallet/');
+            // Check if this is an admin user
+            const adminUser = localStorage.getItem('admin_user');
+            const adminToken = localStorage.getItem('admin_token');
+            const isAdmin = !!(adminUser && adminToken);
+            
+            // For admin users, return a mock wallet with placeholder data
+            if (isAdmin) {
+                console.log('Admin user detected, returning mock wallet data');
+                return {
+                    success: true,
+                    data: {
+                        wallet: {
+                            balance: 5000, // Admin users get a standard 5000 coins for display
+                            user_id: 'admin',
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString()
+                        },
+                        level: 'Diamond',
+                        achievements: [
+                            {
+                                id: 'admin_access',
+                                title: 'Admin Access',
+                                description: 'Has administrator privileges',
+                                icon: '👑',
+                                date_earned: new Date().toISOString()
+                            }
+                        ],
+                        can_spin: false,
+                        daily_spin_available: false
+                    }
+                };
+            }
+            
+            // For regular users, continue with the normal flow
+            const token = localStorage.getItem('anand_mobiles_token');
+            if (!token) {
+                console.warn('No auth token found when attempting to fetch wallet');
+                return {
+                    success: false,
+                    error: 'Not authenticated'
+                };
+            }
+            
+            // Get token payload (encoded in base64)
+            try {
+                const tokenParts = token.split('.');
+                if (tokenParts.length === 3) {
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    // Check if token has email field (required by backend)
+                    if (!payload.email) {
+                        console.error('Token missing email field - backend validation will fail');
+                        return {
+                            success: false,
+                            error: 'Invalid token format: missing email field'
+                        };
+                    }
+                }
+            } catch (tokenError) {
+                console.error('Error parsing token:', tokenError);
+            }
+            
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/wallet/');
             return {
                 success: true,
                 data: response.data
             };
         } catch (error) {
+            console.error('Wallet fetch error:', error.response?.data?.error || error.message);
+            if (error.response?.status === 401 && error.response?.data?.error?.includes('missing email')) {
+                // Token is invalid - notify user to log in again
+                console.error('Detected invalid token format (missing email field)');
+                
+                // Dispatch custom event to notify auth store
+                window.dispatchEvent(new CustomEvent('tokenError', { 
+                    detail: { message: 'Authentication token is invalid. Please log in again.' } 
+                }));
+            }
             return {
                 success: false,
                 error: error.response?.data?.error || 'Failed to fetch wallet data'
@@ -29,7 +114,8 @@ class GamificationService {
 
     async addCoins(amount, reason, description = '') {
         try {
-            const response = await api.post('/users/wallet/add-coins/', {
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.post('/users/wallet/add-coins/', {
                 amount,
                 reason,
                 description
@@ -49,7 +135,8 @@ class GamificationService {
     // Spin Wheel
     async spinWheel() {
         try {
-            const response = await api.post('/users/rewards/spin-wheel/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.post('/users/rewards/spin-wheel/');
             
             // Validate response structure
             if (response.data && response.data.reward) {
@@ -75,12 +162,76 @@ class GamificationService {
     // Gamification Status
     async getGamificationStatus() {
         try {
-            const response = await api.get('/users/gamification/status/');
+            // Check if this is an admin user
+            const adminUser = localStorage.getItem('admin_user');
+            const adminToken = localStorage.getItem('admin_token');
+            const isAdmin = !!(adminUser && adminToken);
+            
+            // For admin users, return mock gamification status
+            if (isAdmin) {
+                console.log('Admin user detected, returning mock gamification status');
+                return {
+                    success: true,
+                    data: {
+                        level: 'Diamond',
+                        points: 10000,
+                        next_level_points: 15000,
+                        progress_percentage: 66,
+                        achievements_count: 1,
+                        available_achievements: 0,
+                        login_streak: 100,
+                        daily_spin_available: false,
+                        referral_code: 'ADMIN2023',
+                        referral_count: 50
+                    }
+                };
+            }
+            
+            // For regular users, continue with the normal flow
+            const token = localStorage.getItem('anand_mobiles_token');
+            if (!token) {
+                console.warn('No auth token found when attempting to fetch gamification status');
+                return {
+                    success: false,
+                    error: 'Not authenticated'
+                };
+            }
+            
+            // Get token payload (encoded in base64)
+            try {
+                const tokenParts = token.split('.');
+                if (tokenParts.length === 3) {
+                    const payload = JSON.parse(atob(tokenParts[1]));
+                    // Check if token has email field (required by backend)
+                    if (!payload.email) {
+                        console.error('Token missing email field - backend validation will fail');
+                        return {
+                            success: false,
+                            error: 'Invalid token format: missing email field'
+                        };
+                    }
+                }
+            } catch (tokenError) {
+                console.error('Error parsing token:', tokenError);
+            }
+            
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/gamification/status/');
             return {
                 success: true,
                 data: response.data
             };
         } catch (error) {
+            console.error('Gamification status error:', error.response?.data?.error || error.message);
+            if (error.response?.status === 401 && error.response?.data?.error?.includes('missing email')) {
+                // Token is invalid - clear it and notify user to log in again
+                console.error('Detected invalid token format (missing email field)');
+                
+                // Dispatch custom event to notify auth store
+                window.dispatchEvent(new CustomEvent('tokenError', { 
+                    detail: { message: 'Authentication token is invalid. Please log in again.' } 
+                }));
+            }
             return {
                 success: false,
                 error: error.response?.data?.error || 'Failed to fetch gamification status'
@@ -91,7 +242,8 @@ class GamificationService {
     // Leaderboard
     async getLeaderboard() {
         try {
-            const response = await api.get('/users/rewards/leaderboard/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/rewards/leaderboard/');
             return {
                 success: true,
                 data: response.data
@@ -107,7 +259,8 @@ class GamificationService {
     // Achievements
     async getAchievements() {
         try {
-            const response = await api.get('/users/rewards/achievements/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/rewards/achievements/');
             return {
                 success: true,
                 data: response.data
@@ -123,7 +276,8 @@ class GamificationService {
     // Referrals
     async getReferralData() {
         try {
-            const response = await api.get('/users/rewards/referrals/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/rewards/referrals/');
             return {
                 success: true,
                 data: response.data
@@ -139,7 +293,8 @@ class GamificationService {
     // Login Streak
     async checkLoginStreak() {
         try {
-            const response = await api.post('/users/rewards/login-streak/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.post('/users/rewards/login-streak/');
             return {
                 success: true,
                 data: response.data
@@ -161,7 +316,8 @@ class GamificationService {
     async getSpinStatus() {
         try {
             // Use gamification status to check spin availability
-            const response = await api.get('/users/gamification/status/');
+            const apiInstance = this.getApiInstance();
+            const response = await apiInstance.get('/users/gamification/status/');
             return {
                 success: true,
                 data: {

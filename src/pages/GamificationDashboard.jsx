@@ -15,6 +15,7 @@ import {
 import { FaTrophy, FaSpinner, FaMedal, FaCoins } from 'react-icons/fa';
 import useGamificationStore from '../store/useGamificationStore';
 import { useAuthStore } from '../store/useAuth';
+import { useAdminAuthStore } from '../store/Admin/useAdminAuth';
 import Button from '../components/ui/Button';
 import SpinWheel from '../components/gamification/SpinWheel';
 import WalletModal from '../components/gamification/WalletModal';
@@ -22,6 +23,7 @@ import toast from 'react-hot-toast';
 
 const GamificationDashboard = () => {
   const { user, isAuthenticated } = useAuthStore();
+  const { admin, isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const location = useLocation();
   const {
     // wallet, // Available if needed for future features
@@ -57,7 +59,8 @@ const GamificationDashboard = () => {
   }, [location.search]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    // Load gamification data if user is authenticated (customer or admin)
+    if ((isAuthenticated && user) || (isAdminAuth && admin)) {
       fetchWallet();
       fetchGamificationStatus();
       fetchLeaderboard();
@@ -69,10 +72,13 @@ const GamificationDashboard = () => {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user]); // Only depend on auth state to prevent infinite loop
+  }, [isAuthenticated, user, isAdminAuth, admin]); // Check both auth states
 
   // Role-based access control - exclude delivery partners
-  if (!isAuthenticated || !user) {
+  const isUserAuthenticated = (isAuthenticated && user) || (isAdminAuth && admin);
+  const currentUser = user || admin;
+  
+  if (!isUserAuthenticated || !currentUser) {
     return (
       <div 
         className="p-6 text-center"
@@ -83,7 +89,7 @@ const GamificationDashboard = () => {
     );
   }
 
-  const userRole = user?.role || user?.user_type || 'customer';
+  const userRole = currentUser?.role || currentUser?.user_type || 'customer';
   if (userRole === 'delivery_partner' || userRole === 'delivery' || userRole === 'deliveryman') {
     return null; // Hide for delivery partners
   }

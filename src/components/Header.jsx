@@ -475,15 +475,17 @@ const Header = () => {
 
   // Fetch cart and wishlist data when component mounts or authentication state changes
   useEffect(() => {
-    if (isAuthenticated && !cartWishlistInitialized.current) {
+    const userIsAuthenticated = isAuthenticated || isAdminAuth;
+    
+    if (userIsAuthenticated && !cartWishlistInitialized.current) {
       cartWishlistInitialized.current = true;
       fetchCart();
       fetchWishlist();
-    } else if (!isAuthenticated) {
+    } else if (!userIsAuthenticated) {
       // Reset the initialization flag when user logs out
       cartWishlistInitialized.current = false;
     }
-  }, [isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, isAdminAuth]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const getUserLocation = () => {
       if (navigator.geolocation) {
@@ -861,7 +863,7 @@ const Header = () => {
               
               {/* User Profile */}
               <Link
-                to={isAuthenticated ? "/profile" : ROUTES.LOGIN}
+                to={isAdminAuth ? "/admin/profile" : (isAuthenticated ? "/profile" : ROUTES.LOGIN)}
                 className="flex flex-col items-center transition-all duration-300 hover:translate-y-[-2px] group"
               >
                 <div className="relative">
@@ -876,7 +878,7 @@ const Header = () => {
                     className="font-semibold truncate max-w-20"
                     style={{ color: "var(--text-on-brand)" }}
                   >
-                    {isAuthenticated ? "Account" : "Sign In"}
+                    {(isAuthenticated || isAdminAuth) ? "Account" : "Sign In"}
                   </p>
                 </div>
               </Link>

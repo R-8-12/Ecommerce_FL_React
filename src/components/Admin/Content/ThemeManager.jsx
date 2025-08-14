@@ -21,6 +21,7 @@ import {
 } from 'react-icons/fi';
 import { HexColorPicker } from 'react-colorful';
 import {useThemeStore} from '../../../store/Admin/useThemeStore';
+import useFrontendCacheStore from '../../../store/useFrontendCacheStore';
 import { adminApi } from '../../../services/api';
 import { loadCustomColors, applyColorsToDocument, getDefaultColors, saveCustomColors } from '../../../utils/colorUtils';
 import toast from 'react-hot-toast';
@@ -43,6 +44,7 @@ const ThemeManager = () => {
   const [mode, setMode] = useState('light');
 
   const { _initializeTheme } = useThemeStore();
+  const { updateTheme } = useFrontendCacheStore();
 
   // Load theme settings from backend
   useEffect(() => {
@@ -138,6 +140,18 @@ const ThemeManager = () => {
       
       // Apply to document
       applyColorsToCSS(colors);
+      
+      // Update frontend cache to show changes immediately
+      const updatedTheme = {
+        primaryColor: colors.primary,
+        secondaryColor: colors.secondary,
+        successColor: colors.success,
+        errorColor: colors.error,
+        warningColor: colors.warning,
+        infoColor: colors.info,
+        mode: mode
+      };
+      updateTheme(updatedTheme);
       
       toast.success('Theme settings saved successfully!');
       

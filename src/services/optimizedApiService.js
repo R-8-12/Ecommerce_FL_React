@@ -27,7 +27,9 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('admin_token') || localStorage.getItem('token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    // Ensure token is properly formatted for JWT (remove any quotes)
+    const formattedToken = token.replace(/^"|"$/g, '');
+    config.headers.Authorization = `Bearer ${formattedToken}`;
   }
   return config;
 });
@@ -95,9 +97,28 @@ export const ordersApi = {
         ...(params.status && params.status !== 'all' && { status: params.status })
       });
 
-      const response = await apiClient.get(`/admin/orders/paginated/?${queryParams}`);
-      return response.data;
+      // Add retry logic for order fetching
+      let retries = 3;
+      let lastError = null;
+      
+      while (retries > 0) {
+        try {
+          const response = await apiClient.get(`/admin/orders/paginated/?${queryParams}`);
+          return response.data;
+        } catch (error) {
+          lastError = error;
+          retries--;
+          if (retries > 0) {
+            console.warn(`Order fetch retry (${retries} remaining): ${error.message}`);
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+          }
+        }
+      }
+      
+      // If we get here, all retries failed
+      throw lastError || new Error('All order fetch retries failed');
     } catch (error) {
+      console.error(`Orders fetch failed:`, error);
       throw new Error(`Orders fetch failed: ${error.response?.data?.message || error.message}`);
     }
   },

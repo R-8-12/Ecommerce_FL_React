@@ -11,12 +11,15 @@ import {
 } from 'react-icons/fi';
 import { FaCoins } from 'react-icons/fa';
 import { toast } from 'react-hot-toast';
+import { adminApi } from '../../../services/api';
+import useFrontendCacheStore from '../../../store/useFrontendCacheStore';
 import Button from '../../ui/Button';
 import Modal from '../../ui/Modal';
 
 const GamificationManager = () => {
   const [activeTab, setActiveTab] = useState('rewards');
   const [isLoading, setIsLoading] = useState(false);
+  const { updateGamification } = useFrontendCacheStore(); // For cache invalidation
   const [settings, setSettings] = useState({
     rewards: {
       signup_bonus: 100,
@@ -31,13 +34,13 @@ const GamificationManager = () => {
       enabled: true,
       daily_spins: 1,
       rewards: [
-        { id: 1, type: 'coins', value: 10, weight: 30, label: '10 Coins' },
-        { id: 2, type: 'coins', value: 25, weight: 20, label: '25 Coins' },
-        { id: 3, type: 'coins', value: 50, weight: 15, label: '50 Coins' },
-        { id: 4, type: 'discount', value: 5, weight: 15, label: '5% Discount' },
-        { id: 5, type: 'discount', value: 10, weight: 10, label: '10% Discount' },
-        { id: 6, type: 'free_shipping', value: 0, weight: 8, label: 'Free Shipping' },
-        { id: 7, type: 'coins', value: 100, weight: 2, label: '100 Coins (Jackpot!)' }
+        { id: 1, type: 'coins', value: 10, weight: 30, label: '10 Coins', color: '#FFD700', textColor: '#333333' },
+        { id: 2, type: 'coins', value: 25, weight: 20, label: '25 Coins', color: '#4ECDC4', textColor: '#FFFFFF' },
+        { id: 3, type: 'coins', value: 50, weight: 15, label: '50 Coins', color: '#96CEB4', textColor: '#FFFFFF' },
+        { id: 4, type: 'discount', value: 5, weight: 15, label: '5% Discount', color: '#FFEAA7', textColor: '#2D3436' },
+        { id: 5, type: 'discount', value: 10, weight: 10, label: '10% Discount', color: '#45B7D1', textColor: '#FFFFFF' },
+        { id: 6, type: 'freebie', value: 'shipping', weight: 8, label: 'Free Shipping', color: '#FF6B6B', textColor: '#FFFFFF' },
+        { id: 7, type: 'coins', value: 100, weight: 2, label: '100 Coins (Jackpot!)', color: '#DDA0DD', textColor: '#FFFFFF' }
       ]
     },
     economy: {
@@ -72,11 +75,12 @@ const GamificationManager = () => {
   const loadGamificationSettings = async () => {
     setIsLoading(true);
     try {
-      // In real implementation, fetch from API
-      // const response = await adminApi.get('/admin/gamification/settings/');
-      // setSettings(response.data);
+      const response = await adminApi.get('/admin/gamification/settings/');
       
-      // For now, using default settings
+      if (response.data.success) {
+        setSettings(response.data.settings);
+      }
+      
       setIsLoading(false);
     } catch (err) {
       console.error('Failed to load gamification settings:', err);
@@ -88,10 +92,19 @@ const GamificationManager = () => {
   const saveSettings = async () => {
     setIsLoading(true);
     try {
-      // In real implementation, save to API
-      // await adminApi.post('/admin/gamification/settings/', settings);
+      const response = await adminApi.post('/admin/gamification/settings/update/', {
+        settings: settings
+      });
       
-      toast.success('Gamification settings saved successfully!');
+      if (response.data.success) {
+        toast.success('Gamification settings saved successfully!');
+        
+        // Invalidate frontend cache to force refresh of gamification data
+        updateGamification();
+      } else {
+        toast.error('Failed to save settings');
+      }
+      
       setIsLoading(false);
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -305,19 +318,45 @@ const GamificationManager = () => {
                 borderColor: 'var(--border-primary)'
               }}
             >
-              <div>
-                <span 
-                  className="font-medium"
-                  style={{ color: 'var(--text-primary)' }}
+              <div className="flex items-center space-x-3">
+                {/* Color Preview */}
+                <div 
+                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center"
+                  style={{ backgroundColor: reward.color }}
                 >
-                  {reward.label}
-                </span>
-                <span 
-                  className="ml-2 text-sm"
-                  style={{ color: 'var(--text-secondary)' }}
-                >
-                  (Weight: {reward.weight}%)
-                </span>
+                  <span 
+                    className="text-xs font-bold"
+                    style={{ color: reward.textColor }}
+                  >
+                    {reward.type === 'coins' ? '🪙' : reward.type === 'discount' ? '%' : '🚚'}
+                  </span>
+                </div>
+                
+                <div>
+                  <span 
+                    className="font-medium"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {reward.label}
+                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span 
+                      className="text-sm"
+                      style={{ color: 'var(--text-secondary)' }}
+                    >
+                      Weight: {reward.weight}%
+                    </span>
+                    <span 
+                      className="text-xs px-2 py-1 rounded-full"
+                      style={{ 
+                        backgroundColor: `${reward.color}20`,
+                        color: reward.color
+                      }}
+                    >
+                      {reward.type}
+                    </span>
+                  </div>
+                </div>
               </div>
               <div className="flex space-x-2">
                 <Button
@@ -592,6 +631,8 @@ const RewardFormModal = ({ reward, onSave, onCancel }) => {
     value: reward?.value || 0,
     label: reward?.label || '',
     weight: reward?.weight || 10,
+    color: reward?.color || '#FFD700',
+    textColor: reward?.textColor || '#333333',
   });
 
   const [errors, setErrors] = useState({});
@@ -603,7 +644,7 @@ const RewardFormModal = ({ reward, onSave, onCancel }) => {
       newErrors.label = 'Label is required';
     }
     
-    if (formData.value <= 0) {
+    if (formData.type !== 'freebie' && formData.value <= 0) {
       newErrors.value = 'Value must be greater than 0';
     }
     
@@ -640,7 +681,7 @@ const RewardFormModal = ({ reward, onSave, onCancel }) => {
         >
           <option value="coins">Coins</option>
           <option value="discount">Discount %</option>
-          <option value="free_shipping">Free Shipping</option>
+          <option value="freebie">Free Shipping</option>
         </select>
       </div>
 
@@ -658,7 +699,7 @@ const RewardFormModal = ({ reward, onSave, onCancel }) => {
             borderColor: 'var(--border-primary)',
             color: 'var(--text-primary)'
           }}
-          disabled={formData.type === 'free_shipping'}
+          disabled={formData.type === 'freebie'}
         />
         {errors.value && <p className="text-red-500 text-sm mt-1">{errors.value}</p>}
       </div>
@@ -680,6 +721,80 @@ const RewardFormModal = ({ reward, onSave, onCancel }) => {
           }}
         />
         {errors.label && <p className="text-red-500 text-sm mt-1">{errors.label}</p>}
+      </div>
+
+      {/* Color Selection */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            Background Color
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="color"
+              value={formData.color}
+              onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+              className="w-12 h-10 rounded-md border cursor-pointer"
+              style={{ borderColor: 'var(--border-primary)' }}
+            />
+            <input
+              type="text"
+              value={formData.color}
+              onChange={(e) => setFormData(prev => ({ ...prev, color: e.target.value }))}
+              className="flex-1 px-3 py-2 rounded-md border text-sm"
+              placeholder="#FFD700"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-primary)',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            Text Color
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="color"
+              value={formData.textColor}
+              onChange={(e) => setFormData(prev => ({ ...prev, textColor: e.target.value }))}
+              className="w-12 h-10 rounded-md border cursor-pointer"
+              style={{ borderColor: 'var(--border-primary)' }}
+            />
+            <input
+              type="text"
+              value={formData.textColor}
+              onChange={(e) => setFormData(prev => ({ ...prev, textColor: e.target.value }))}
+              className="flex-1 px-3 py-2 rounded-md border text-sm"
+              placeholder="#FFFFFF"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                borderColor: 'var(--border-primary)',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Color Preview */}
+      <div>
+        <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+          Preview
+        </label>
+        <div 
+          className="inline-block px-4 py-2 rounded-lg font-medium text-center min-w-32"
+          style={{ 
+            backgroundColor: formData.color,
+            color: formData.textColor,
+            border: '1px solid var(--border-primary)'
+          }}
+        >
+          {formData.label || 'Sample Text'}
+        </div>
       </div>
 
       <div>

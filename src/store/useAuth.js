@@ -40,8 +40,34 @@ const storeData = (key, data) => {
 const persistAuthData = (token, userData) => {
   try {
     if (token) {
+      // Validate token format before storing
+      try {
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          // Check for required fields
+          if (!payload.email) {
+            console.error('🚨 TOKEN ERROR: Missing email field in token payload');
+            console.log('Token payload:', payload);
+            throw new Error('Invalid token format: missing email field');
+          }
+          if (!payload.user_id) {
+            console.warn('⚠️ TOKEN WARNING: Missing user_id field in token payload');
+          }
+        } else {
+          console.error('🚨 TOKEN ERROR: Invalid token format (not a valid JWT)');
+          throw new Error('Invalid token format: not a valid JWT');
+        }
+      } catch (tokenError) {
+        console.error('🚨 TOKEN ERROR:', tokenError);
+        // If there's an error with the token format, don't store it
+        return false;
+      }
+      
+      // Store valid token
       localStorage.setItem(TOKEN_KEY, token);
     }
+    
     if (userData) {
       storeData(USER_KEY, userData);
     }
@@ -66,6 +92,28 @@ const clearAuthData = () => {
 const getInitialState = () => {
   const token = localStorage.getItem(TOKEN_KEY);
   const userData = getStoredData(USER_KEY);
+  
+  // Validate token format
+  if (token) {
+    try {
+      const tokenParts = token.split('.');
+      if (tokenParts.length === 3) {
+        const payload = JSON.parse(atob(tokenParts[1]));
+        if (!payload.email) {
+          console.error('Invalid token format (missing email field) - clearing token');
+          localStorage.removeItem(TOKEN_KEY);
+          return {
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: 'Invalid token format detected',
+          };
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing token:', e);
+    }
+  }
 
   return {
     user: userData,

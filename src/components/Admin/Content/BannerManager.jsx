@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Button from "../../ui/Button";
 import ImageCropper from "../../ui/ImageCropper";
 import  {useBannerStore}  from "../../../store/Admin/useBannerStore";
+import useFrontendCacheStore from "../../../store/useFrontendCacheStore";
 import ConfirmModal from "../../ui/ConfirmModal";
 import toast from "react-hot-toast";
 import { navigationCategories } from "../../../constants/bannerOptions";
@@ -17,6 +18,8 @@ const BannerManager = ({ positionOptions }) => {
     deleteBanner,
     toggleBannerActive,
   } = useBannerStore();
+
+  const { updateBanners } = useFrontendCacheStore();
   const [editingBanner, setEditingBanner] = useState(null);
   const [bannerToDelete, setBannerToDelete] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -91,6 +94,9 @@ const BannerManager = ({ positionOptions }) => {
   };
   const handleToggleActive = async (id) => {
     await toggleBannerActive(id);
+    // Refresh banners and update cache
+    await fetchBanners();
+    updateBanners(banners);
   };
   const handleEditBanner = (banner) => {
     setEditingBanner(banner);
@@ -118,6 +124,9 @@ const BannerManager = ({ positionOptions }) => {
     }
 
     await editBanner(editingBanner.id, formData);
+    // Refresh banners and update cache
+    await fetchBanners();
+    updateBanners(banners);
     resetEditBannerForm();
   };
 

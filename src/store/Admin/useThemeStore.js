@@ -148,8 +148,9 @@ const useThemeStore = create(
           // Update data attribute for CSS selectors
           document.documentElement.setAttribute('data-theme', themeName);
           
-          // Store in localStorage for persistence
-          localStorage.setItem('theme-preference', themeName);
+          // Don't store theme-preference in localStorage - this conflicts with user theme settings
+          // Only admin theme customizations should persist, not mode switching
+          // localStorage.setItem('theme-preference', themeName);
         },
 
         // Preview theme (temporary, doesn't save)
@@ -305,7 +306,8 @@ const useThemeStore = create(
 
         // Initialize theme on app load
         initializeTheme: () => {
-          const savedTheme = localStorage.getItem('theme-preference');
+          // Don't initialize from localStorage theme-preference to avoid conflicts
+          // Use frontend cache theme data instead
           const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           const { themeConfig } = get();
           
@@ -313,8 +315,6 @@ const useThemeStore = create(
           
           if (themeConfig.followSystemTheme) {
             initialTheme = systemPrefersDark ? 'dark' : 'light';
-          } else if (savedTheme) {
-            initialTheme = savedTheme;
           }
           
           get().setTheme(initialTheme);

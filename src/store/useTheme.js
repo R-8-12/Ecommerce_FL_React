@@ -18,8 +18,11 @@ const useThemeStore = create((set, get) => ({
       updateDocumentClass(isDark);
     }
     
-    
-    localStorage.setItem('anand-mobiles-theme', theme);
+    // Only store the theme mode if user manually sets it
+    // Don't store automatic theme changes from admin customizations
+    if (theme === 'light' || theme === 'dark' || theme === 'system') {
+      localStorage.setItem('anand-mobiles-theme', theme);
+    }
   },
   
   

@@ -20,6 +20,7 @@ import {
 import { FaWhatsapp } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { useFooterStore } from "../../../store/Admin/useFooterStore";
+import useFrontendCacheStore from "../../../store/useFrontendCacheStore";
 import Button from "../../ui/Button";
 
 const FooterManager = () => {
@@ -45,6 +46,8 @@ const FooterManager = () => {
     toggleFooterSection,
     clearError,
   } = useFooterStore();
+
+  const { updateFooter } = useFrontendCacheStore();
 
   // Icon mapping for social media
   const iconMapping = {
@@ -108,6 +111,8 @@ const FooterManager = () => {
 
     try {
       await updateFooterConfig(updatedConfig);
+      // Update frontend cache immediately
+      updateFooter(updatedConfig);
       toast.success("Link updated successfully");
     } catch {
       toast.error("Failed to update link");
@@ -123,6 +128,8 @@ const FooterManager = () => {
 
     try {
       await updateFooterConfig(updatedConfig);
+      // Update frontend cache immediately
+      updateFooter(updatedConfig);
       setEditMode({});
       toast.success("Link updated successfully");
     } catch {

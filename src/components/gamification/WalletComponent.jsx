@@ -11,10 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion'; // Used for JSX motion 
 import { FaCoins, FaWallet, FaGift, FaTrophy, FaStar, FaAward, FaUsers } from 'react-icons/fa';
 import useGamificationStore from '../../store/useGamificationStore';
 import { useAuthStore } from '../../store/useAuth';
+import { useAdminAuthStore } from '../../store/Admin/useAdminAuth';
 import { useNavigate } from 'react-router-dom';
 
 const WalletComponent = () => {
   const { user, isAuthenticated } = useAuthStore();
+  const { admin, isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const {
     wallet,
     coinBalance,
@@ -31,12 +33,22 @@ const WalletComponent = () => {
   const [animatedBalance, setAnimatedBalance] = useState(0);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchWallet();
-      fetchGamificationStatus();
+    // Check authentication for both customer and admin users
+    const isUserAuthenticated = (isAuthenticated && user) || (isAdminAuth && admin);
+    
+    if (isUserAuthenticated) {
+      // Only fetch wallet data if user is not an admin
+      if (isAuthenticated && user) {
+        fetchWallet();
+        fetchGamificationStatus();
+      } else if (isAdminAuth && admin) {
+        // For admin users, we'll rely on the mock data from gamificationService
+        // Just trigger the wallet fetch which will return mock data for admins
+        fetchWallet();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user]); // Only depend on auth state to prevent infinite loop
+  }, [isAuthenticated, user, isAdminAuth, admin]); // Check both auth states
 
   // Animate balance changes
   useEffect(() => {
@@ -64,12 +76,15 @@ const WalletComponent = () => {
   }, [coinBalance, animatedBalance]);
 
   // Role-based access control - exclude delivery partners
-  if (!isAuthenticated || !user) {
+  const isUserAuthenticated = (isAuthenticated && user) || (isAdminAuth && admin);
+  const currentUser = user || admin;
+  
+  if (!isUserAuthenticated || !currentUser) {
     return null;
   }
 
   // Check if user is delivery partner (exclude gamification for them)
-  const userRole = user?.role || user?.user_type || 'customer';
+  const userRole = currentUser?.role || currentUser?.user_type || 'customer';
   if (userRole === 'delivery_partner' || userRole === 'delivery' || userRole === 'deliveryman') {
     return null;
   }

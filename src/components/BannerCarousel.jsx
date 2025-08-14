@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import useFrontendCacheStore from "../store/useFrontendCacheStore";
+import { useAuthStore } from "../store/useAuth";
+import { useAdminAuthStore } from "../store/Admin/useAdminAuth";
 
 // Define fallback product images with correct paths for Vite
 const fallbackImages = [
@@ -35,9 +37,17 @@ const fallbackImages = [
 
 const BannerCarousel = () => {
   // Use centralized cache instead of individual banner store
-  const { getBanners } = useFrontendCacheStore();
+  const { getBanners, fetchBanners } = useFrontendCacheStore();
+  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated: isAdminAuth } = useAdminAuthStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [[page, direction], setPage] = useState([0, 0]);
+
+  // Fetch banners when auth state changes
+  useEffect(() => {
+    console.log('🎠 Auth state changed in carousel, refreshing banners...');
+    fetchBanners('homepage');
+  }, [isAuthenticated, isAdminAuth, fetchBanners]);
 
   // Get carousel banners from cache or use fallback
   const allBanners = getBanners();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   FiDownload,
   FiSearch,
@@ -10,7 +10,8 @@ import OrderTable from "../../components/Admin/Orders/OrderTable";
 import OrderDetail from "../../components/Admin/Orders/OrderDetail";
 import Button from "../../components/ui/Button";
 import Pagination from "../../components/common/Pagination";
-import useAdminStore from "../../store/Admin/useAdminStore";
+import optimizedApiService from "../../services/optimizedApiService";
+import { toast } from "react-hot-toast";
 
 const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -21,63 +22,118 @@ const AdminOrders = () => {
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  const { orders, fetchOrders } = useAdminStore();
-  const { loading, statusCounts } = orders;
+  const [itemsPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  
+  // Orders data state
+  const [orders, setOrders] = useState({
+    list: [],
+    statusCounts: {},
+    totalItems: 0,
+    hasMore: true
+  });
+
+  // Function to fetch orders using the optimized API service
+  const fetchOrders = useCallback(async (page = 1, status = statusFilter) => {
+    try {
+      setLoading(true);
+      
+      // Map UI sort options to API sort parameters
+      const sortMapping = {
+        "newest": { sortBy: "created_at", sortDirection: "desc" },
+        "oldest": { sortBy: "created_at", sortDirection: "asc" },
+        "amount-high": { sortBy: "total_amount", sortDirection: "desc" },
+        "amount-low": { sortBy: "total_amount", sortDirection: "asc" },
+        "status": { sortBy: "status", sortDirection: "asc" },
+        "order-id": { sortBy: "order_id", sortDirection: "asc" }
+      };
+      
+      const { sortBy: apiSortBy, sortDirection } = sortMapping[sortBy] || sortMapping["newest"];
+      
+      // Call the optimized API service
+      const response = await optimizedApiService.orders.getPaginated({
+        page,
+        pageSize: itemsPerPage,
+        sortBy: apiSortBy,
+        sortDirection,
+        status: status !== "all" ? status : undefined
+      });
+      
+      if (response.status === "success") {
+        const ordersData = response.data.orders || [];
+        const pagination = response.data.pagination || {};
+        
+        // Count orders by status
+        const statusCounts = {};
+        ordersData.forEach(order => {
+          const status = order.status || "unknown";
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+        });
+        
+        setOrders({
+          list: ordersData,
+          statusCounts,
+          totalItems: pagination.total_items || ordersData.length,
+          hasMore: pagination.has_next || false
+        });
+        
+        // Log optimization metrics
+        console.info(
+          `📈 Firebase optimization: ${response.optimization?.firebase_reads_saved || "Unknown"} reads saved`
+        );
+      } else {
+        throw new Error("Failed to fetch orders");
+      }
+    } catch (error) {
+      toast.error(`Error fetching orders: ${error.message}`);
+      console.error("Order fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, sortBy, itemsPerPage]);
 
   useEffect(() => {
-    fetchOrders();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchOrders(currentPage, statusFilter);
+  }, [currentPage, statusFilter, sortBy]); // Refetch when these values change
 
-  // Filter and sort orders based on status, search query, and sort option
-  const filteredOrders = orders.list
-    .filter((order) => {
-      const matchesSearch =
-        order.order_id?.toString().includes(searchQuery) ||
-        order.user_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.invoice_id?.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesStatus =
-        statusFilter === "all" || order.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "newest":
-          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-        case "oldest":
-          return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-        case "amount-high":
-          return (b.total_amount || 0) - (a.total_amount || 0);
-        case "amount-low":
-          return (a.total_amount || 0) - (b.total_amount || 0);
-        case "status":
-          return (a.status || "").localeCompare(b.status || "");
-        case "order-id":
-          return (a.order_id || "").localeCompare(b.order_id || "");
-        default:
-          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
-      }
-    });
+  // Filter orders based on search query only (status filtering is done on the server)
+  const filteredOrders = orders.list.filter((order) => {
+    return (
+      !searchQuery || 
+      order.order_id?.toString().includes(searchQuery) ||
+      order.user_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.invoice_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   // Pagination calculations
-  const totalItems = filteredOrders.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = startIndex + ITEMS_PER_PAGE;
-  const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+  const totalItems = searchQuery ? filteredOrders.length : orders.totalItems;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
 
+  // For search filtering, we need to paginate locally
+  const startIndex = searchQuery ? (currentPage - 1) * itemsPerPage : 0;
+  const endIndex = searchQuery ? startIndex + itemsPerPage : itemsPerPage;
+  const paginatedOrders = searchQuery 
+    ? filteredOrders.slice(startIndex, endIndex)
+    : filteredOrders; // If not searching, API already paginated the results
+    
   // Handle page change
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
+    
+    // Only fetch new data if search query is not active
+    if (!searchQuery) {
+      fetchOrders(page, statusFilter);
+    }
   };
 
   // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchQuery, sortBy]);
+  }, [statusFilter, searchQuery]);
 
   // Helper function to export orders to CSV
   const exportOrdersToCSV = () => {
@@ -144,6 +200,12 @@ const AdminOrders = () => {
     setShowOrderDetailModal(true);
   };
 
+  // Handle order update after editing
+  const handleOrderUpdate = async () => {
+    await fetchOrders(currentPage, statusFilter);
+    setShowOrderDetailModal(false);
+  };
+  
   const handleCloseModal = () => {
     setShowOrderDetailModal(false);
   };
@@ -171,7 +233,7 @@ const AdminOrders = () => {
             variant="secondary"
             size="sm"
             fullWidth={false}
-            onClick={fetchOrders}
+            onClick={() => fetchOrders(1, statusFilter)}
             isLoading={loading}
             icon={<FiRefreshCw size={16} />}
           >
@@ -233,7 +295,7 @@ const AdminOrders = () => {
             >
               {status === "all"
                 ? orders.list.length
-                : statusCounts[status] || 0}
+                : orders.statusCounts[status] || 0}
             </div>
           </button>
         ))}
@@ -322,6 +384,7 @@ const AdminOrders = () => {
           statusFilter={statusFilter}
           searchQuery={searchQuery}
           orders={paginatedOrders}
+          loading={loading}
         />
 
         {/* Pagination */}
@@ -331,7 +394,7 @@ const AdminOrders = () => {
             totalPages={totalPages}
             onPageChange={handlePageChange}
             totalItems={totalItems}
-            itemsPerPage={ITEMS_PER_PAGE}
+            itemsPerPage={itemsPerPage}
             showItemCount={true}
           />
         )}
@@ -369,7 +432,7 @@ const AdminOrders = () => {
                 </button>
               </div>
             </div>
-            <OrderDetail order={selectedOrder} onOrderUpdate={fetchOrders} />
+            <OrderDetail order={selectedOrder} onOrderUpdate={handleOrderUpdate} />
           </div>
         </div>
       )}
