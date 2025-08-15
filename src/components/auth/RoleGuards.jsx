@@ -3,7 +3,7 @@ import RoleBasedRouteGuard from './RoleBasedRouteGuard';
 
 // Specific role guards for convenience
 export const CustomerOnlyRoute = ({ children, redirectTo = '/login' }) => (
-  <RoleBasedRouteGuard allowedRoles={['customer']} redirectTo={redirectTo} requireAuth={true}>
+  <RoleBasedRouteGuard allowedRoles={['customer', 'admin']} redirectTo={redirectTo} requireAuth={true}>
     {children}
   </RoleBasedRouteGuard>
 );

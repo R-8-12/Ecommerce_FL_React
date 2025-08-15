@@ -61,8 +61,10 @@ const RoleBasedRouteGuard = ({ children, allowedRoles = [], redirectTo = '/', re
           return;
         }
       } else if (currentRole === 'admin') {
-        // Admins can access homepage explicitly, but redirect to admin dashboard for other non-admin paths
-        if (!location.pathname.startsWith('/admin/') && location.pathname !== '/') {
+        // Admins should be able to access all customer routes to experience customer flows
+        // Only redirect if they're trying to access delivery partner routes
+        if (location.pathname.startsWith('/delivery/') && !location.pathname.startsWith('/delivery/admin-verify')) {
+          console.log('🚫 Admin trying to access delivery partner route. Redirecting to admin dashboard');
           navigate('/admin/dashboard', { replace: true });
           return;
         }

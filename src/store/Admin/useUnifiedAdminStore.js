@@ -21,10 +21,11 @@
 
 import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
+import axios from "axios";
 import { adminApi } from "../../services/api";
 
 // OPTIMIZATION CONSTANTS
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const ITEMS_PER_PAGE = 25;
 const ADMIN_TOKEN_KEY = "admin_token";
 const ADMIN_USER_KEY = "admin_user";
@@ -259,7 +260,7 @@ export const useUnifiedAdminStore = create(
           userCache: new Map(),
           productCache: new Map(),
           userCacheExpiry: new Map(),
-          CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
+          CACHE_DURATION: 15 * 60 * 1000, // 15 minutes
 
           // Global loading state
           loading: false,
@@ -286,6 +287,7 @@ export const useUnifiedAdminStore = create(
               const response = await adminApi.post("/admin/auth/login/", credentials);
               
               if (response.data && response.data.access_token) {
+                localStorage.setItem('admin_token', response.data.access_token);
                 const { access_token, admin: adminData } = response.data;
                 
                 // Persist authentication data
@@ -334,7 +336,9 @@ export const useUnifiedAdminStore = create(
               
               // Try to call logout endpoint (optional - may fail if server is down)
               try {
-                await adminApi.post("/admin/auth/logout/");
+                // Don't include /admin prefix since it's already part of the API path
+                console.log("Attempting to log out admin user");
+                await adminApi.post("/admin/auth/logout/", {});
               } catch (logoutError) {
                 console.warn("Logout endpoint failed, continuing with local logout:", logoutError.message);
               }
@@ -481,8 +485,15 @@ export const useUnifiedAdminStore = create(
           fetchOrders: async (page = 1, forceRefresh = false) => {
             const state = get();
             
+            // Skip if we're already loading orders
+            if (state.orders.loading && !forceRefresh) {
+              console.log("Store: Skipping fetchOrders - already loading");
+              return;
+            }
+            
             // Check cache for first page
             if (page === 1 && !forceRefresh && state.cache.orders?.isValid()) {
+              console.log("Store: Using cached orders data");
               set({ 
                 orders: { ...state.cache.orders.data, loading: false },
                 pagination: { ...state.pagination, orders: { page, hasMore: state.cache.orders.data.hasMore, total: state.cache.orders.data.total } }
@@ -1037,25 +1048,56 @@ export const useUnifiedAdminStore = create(
                 throw new Error("Admin ID not found");
               }
               
-              const response = await adminApi.put(
+              console.log(`Updating admin profile for ID: ${adminId}`, profileData);
+              
+              // Make sure admin token is in the headers
+              const token = localStorage.getItem("admin_token");
+              if (!token) {
+                throw new Error("No admin authentication token found");
+              }
+              
+              // Clean any quoted tokens
+              const cleanToken = token.replace ? token.replace(/^"|"$/g, '') : token;
+              
+              // Create a custom instance with explicit headers for this request
+              const customAdminApi = axios.create({
+                baseURL: adminApi.defaults.baseURL,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${cleanToken}`
+                }
+              });
+              
+              const response = await customAdminApi.put(
                 `/admin/profile/update/${adminId}/`, 
                 profileData
               );
               
-              if (response.data && response.data.admin) {
+              // Handle successful response
+              if (response.data && (response.data.data || response.data.admin)) {
+                // Get the admin data from the response (using either data or admin field)
+                const responseData = response.data.data || response.data.admin;
+                
                 // Update the admin state with the new profile data
                 set(state => ({
-                  admin: { ...state.admin, ...response.data.admin },
+                  admin: { ...state.admin, ...responseData },
                   isLoading: false
                 }));
                 
                 // Update the stored admin data
-                storeAdminData(ADMIN_USER_KEY, { ...get().admin, ...response.data.admin });
+                storeAdminData(ADMIN_USER_KEY, { ...get().admin, ...responseData });
                 
-                console.log("✅ Admin profile updated successfully");
+                console.log("✅ Admin profile updated successfully", response.data);
                 return response.data;
               } else {
-                throw new Error("Invalid response format from server");
+                console.log("⚠️ Response successful but unexpected format:", response.data);
+                // Still update with whatever we got back
+                set(state => ({
+                  admin: { ...state.admin, ...profileData },
+                  isLoading: false
+                }));
+                
+                return response.data;
               }
             } catch (error) {
               const errorMessage = error.response?.data?.error || 

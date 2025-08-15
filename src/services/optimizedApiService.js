@@ -30,6 +30,8 @@ apiClient.interceptors.request.use((config) => {
     // Ensure token is properly formatted for JWT (remove any quotes)
     const formattedToken = token.replace(/^"|"$/g, '');
     config.headers.Authorization = `Bearer ${formattedToken}`;
+
+    console.log(`Using ${localStorage.getItem('admin_token') ? 'admin' : 'user'} token (first 15 chars): ${formattedToken.substring(0, 10)}...`);
   }
   return config;
 });
@@ -86,39 +88,109 @@ export const ordersApi = {
    * Get paginated orders with server-side sorting and user data
    * Replaces: Direct Firebase queries in AdminOrders component
    * Reduces: ~500 Firebase reads → ~50 reads (90% reduction)
+   * 
+   * SOLUTION: Use the older, working get_all_orders endpoint
    */
-  getPaginated: async (params = {}) => {
+  getPaginated: async (params = {}, signal) => {
     try {
-      const queryParams = new URLSearchParams({
-        page: params.page || 1,
-        page_size: params.pageSize || 25,
-        sort_by: params.sortBy || 'created_at',
-        sort_direction: params.sortDirection || 'desc',
-        ...(params.status && params.status !== 'all' && { status: params.status })
-      });
+      console.log('Using older working endpoint: /admin/get_all_orders');
 
-      // Add retry logic for order fetching
-      let retries = 3;
-      let lastError = null;
+      const adminToken = localStorage.getItem('admin_token');
+      if (!adminToken) {
+        console.error('No admin token found. Please log in again.');
+        throw new Error('Authentication required');
+      }
       
-      while (retries > 0) {
-        try {
-          const response = await apiClient.get(`/admin/orders/paginated/?${queryParams}`);
-          return response.data;
-        } catch (error) {
-          lastError = error;
-          retries--;
-          if (retries > 0) {
-            console.warn(`Order fetch retry (${retries} remaining): ${error.message}`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+      // Use the older, simpler API endpoint that works
+      const response = await apiClient.get(
+        `/admin/get_all_orders`,
+        signal ? { signal } : {}
+      );
+      
+      // Check if request was aborted
+      if (signal && signal.aborted) {
+        console.log("Request was aborted");
+        throw new Error("Request aborted");
+      }
+      
+      console.log('Orders API response:', response.data);
+      
+      // Transform the older API response to match expected format
+      if (response.data && response.data.orders) {
+        const allOrders = response.data.orders;
+        
+        // Apply client-side filtering if status filter is provided
+        let filteredOrders = allOrders;
+        if (params.status && params.status !== 'all') {
+          filteredOrders = allOrders.filter(order => order.status === params.status);
+        }
+        
+        // Apply client-side sorting
+        const sortBy = params.sortBy || 'created_at';
+        const sortDirection = params.sortDirection || 'desc';
+        
+        filteredOrders.sort((a, b) => {
+          let aVal = a[sortBy];
+          let bVal = b[sortBy];
+          
+          // Handle date sorting
+          if (sortBy === 'created_at') {
+            aVal = new Date(aVal);
+            bVal = new Date(bVal);
           }
+          
+          // Handle numeric sorting
+          if (sortBy === 'total_amount') {
+            aVal = parseFloat(aVal) || 0;
+            bVal = parseFloat(bVal) || 0;
+          }
+          
+          if (sortDirection === 'desc') {
+            return bVal > aVal ? 1 : -1;
+          } else {
+            return aVal > bVal ? 1 : -1;
+          }
+        });
+        
+        // Apply client-side pagination
+        const page = parseInt(params.page) || 1;
+        const pageSize = parseInt(params.pageSize) || 25;
+        const startIndex = (page - 1) * pageSize;
+        const endIndex = startIndex + pageSize;
+        const paginatedOrders = filteredOrders.slice(startIndex, endIndex);
+        
+        // Return in expected format
+        return {
+          status: "success",
+          data: {
+            orders: paginatedOrders,
+            pagination: {
+              current_page: page,
+              total_items: filteredOrders.length,
+              total_pages: Math.ceil(filteredOrders.length / pageSize),
+              has_next: endIndex < filteredOrders.length,
+              has_previous: page > 1
+            }
+          }
+        };
+      } else {
+        throw new Error("Unexpected response format");
+      }
+    } catch (error) {
+      console.error(`Orders fetch failed:`, error);
+      
+      // Handle authentication errors
+      if (error.response && error.response.status === 401) {
+        console.error("Authentication failed. Please log in again.");
+        localStorage.removeItem('admin_token');
+        
+        if (window.location.pathname.includes('/admin')) {
+          console.log("Redirecting to admin login...");
+          window.location.href = '/admin/login';
+          return;
         }
       }
       
-      // If we get here, all retries failed
-      throw lastError || new Error('All order fetch retries failed');
-    } catch (error) {
-      console.error(`Orders fetch failed:`, error);
       throw new Error(`Orders fetch failed: ${error.response?.data?.message || error.message}`);
     }
   },

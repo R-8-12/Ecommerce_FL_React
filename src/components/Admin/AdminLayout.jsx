@@ -14,6 +14,7 @@ import {
   FiArrowLeft,
   FiTruck,
   FiSmartphone,
+  FiTool,
 } from "react-icons/fi";
 import NotificationBar from "./NotificationBar";
 import ThemeToggle from "../ui/ThemeToggle";
@@ -206,6 +207,22 @@ const AdminLayout = () => {
             <FiUsers size={20} />
             {!collapsed && <span className="ml-3">My Profile</span>}
           </Link>
+          
+          {/* API Debugger - Only in development mode */}
+          {process.env.NODE_ENV === 'development' && (
+            <Link
+              to="/admin/api-debugger"
+              className="flex items-center px-4 py-2 mb-2 rounded-md hover:bg-gray-700 hover:bg-opacity-30 transition-all duration-150 text-sm"
+              style={{ 
+                borderRadius: "var(--rounded-md)",
+                backgroundColor: location.pathname === "/admin/api-debugger" ? "var(--brand-primary)" : "transparent",
+                color: location.pathname === "/admin/api-debugger" ? "var(--text-on-brand)" : "var(--text-on-dark-bg)",
+              }}
+            >
+              <FiTool size={20} />
+              {!collapsed && <span className="ml-3">API Debugger</span>}
+            </Link>
+          )}
           
           {/* Visit Homepage Link */}
           <Link

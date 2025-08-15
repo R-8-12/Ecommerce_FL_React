@@ -9,9 +9,12 @@ import {
   FiLoader,
   FiCreditCard,
   FiUser,
+  FiUserPlus,
 } from "react-icons/fi";
 import Button from "../../ui/Button";
 import useAdminStore from "../../../store/Admin/useAdminStore";
+import api from "../../../services/api";
+import { toast } from "react-hot-toast";
 
 // Order status badge component
 const StatusBadge = ({ status }) => {
@@ -171,9 +174,80 @@ const formatDate = (dateString) => {
   }
 };
 
-const OrderTable = ({ onSelectOrder, statusFilter, searchQuery }) => {
-  const { orders } = useAdminStore();
-  const { list: orderList, loading } = orders;
+const OrderTable = ({ onSelectOrder, statusFilter, searchQuery, orders: propOrders, loading: propLoading }) => {
+  const { orders: storeOrders } = useAdminStore();
+  const [assigningOrder, setAssigningOrder] = useState(null);
+  const [deliveryPartners, setDeliveryPartners] = useState([]);
+  const [loadingPartners, setLoadingPartners] = useState(false);
+
+  // Fetch delivery partners
+  useEffect(() => {
+    const fetchDeliveryPartners = async () => {
+      setLoadingPartners(true);
+      try {
+        const adminToken = localStorage.getItem('admin_token');
+        const response = await api.get('/admin/partners/delivery/', {
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+          },
+        });
+        setDeliveryPartners(response.data.partners || []);
+      } catch (error) {
+        console.error('Error fetching delivery partners:', error);
+        toast.error('Failed to load delivery partners');
+      } finally {
+        setLoadingPartners(false);
+      }
+    };
+
+    fetchDeliveryPartners();
+  }, []);
+
+  // Handle delivery partner assignment
+  const handleAssignPartner = async (order, partnerId) => {
+    if (!partnerId) return;
+    
+    setAssigningOrder(order.order_id);
+    try {
+      const adminToken = localStorage.getItem('admin_token');
+      const response = await api.post(
+        `/admin/users/${order.user_id}/orders/${order.order_id}/assign-partner/`,
+        { partner_id: partnerId },
+        {
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+          },
+        }
+      );
+      
+      toast.success('Delivery partner assigned successfully!');
+      // Refresh the orders list or update the order in place
+      if (onSelectOrder) {
+        // Trigger a refresh by simulating re-selection
+        setTimeout(() => onSelectOrder(order), 1000);
+      }
+    } catch (error) {
+      console.error('Error assigning delivery partner:', error);
+      toast.error('Failed to assign delivery partner');
+    } finally {
+      setAssigningOrder(null);
+    }
+  };
+  
+  // Prioritize prop data over store data, but use store data as fallback
+  // Important: we now check if propOrders exists at all, not just if it has items
+  const { list: orderList, loading } = propOrders ? 
+    { list: propOrders, loading: propLoading } : 
+    { list: storeOrders?.list || [], loading: propLoading || storeOrders?.loading || false };
+    
+  // Debug logging for orders source
+  console.log("OrderTable rendering with:", {
+    "propOrders provided": propOrders ? "yes" : "no",
+    "propOrders length": propOrders?.length || 0,
+    "storeOrders length": storeOrders?.list?.length || 0,
+    "using": propOrders ? "props" : "store",
+    "final orderList length": orderList.length
+  });
 
   // Filter orders based on status and search query
   const filteredOrders = useMemo(() => {
@@ -354,6 +428,42 @@ const OrderTable = ({ onSelectOrder, statusFilter, searchQuery }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <div className="flex justify-end space-x-2">
+                        {/* Assign Delivery Partner Button */}
+                        {order.status !== 'delivered' && order.status !== 'cancelled' && !order.assigned_partner_id && (
+                          <div className="relative">
+                            <select
+                              className="p-2 text-xs rounded border border-gray-300 bg-white"
+                              onChange={(e) => handleAssignPartner(order, e.target.value)}
+                              value=""
+                              disabled={assigningOrder === order.order_id || loadingPartners}
+                              title="Assign Delivery Partner"
+                            >
+                              <option value="">
+                                {loadingPartners ? 'Loading...' : 'Assign Partner'}
+                              </option>
+                              {deliveryPartners.map((partner) => (
+                                <option key={partner.partner_id} value={partner.partner_id}>
+                                  {partner.name} - {partner.phone}
+                                </option>
+                              ))}
+                            </select>
+                            {assigningOrder === order.order_id && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded">
+                                <FiLoader className="animate-spin" size={16} />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Show assigned partner info */}
+                        {order.assigned_partner_id && (
+                          <div className="flex items-center text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            <FiUserPlus size={12} className="mr-1" />
+                            {order.assigned_partner_name || 'Assigned'}
+                          </div>
+                        )}
+                        
+                        {/* View Order Button */}
                         <button
                           className="p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
                           style={{ color: "var(--brand-primary)" }}

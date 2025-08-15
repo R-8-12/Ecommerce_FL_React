@@ -92,7 +92,7 @@ import Page404 from "./pages/Page404";
 import GamificationIntegration from "./components/gamification/GamificationIntegration";
 
 // Import debug components (only loaded in development)
-import { AuthDebugger } from './imports/debugComponents';
+import { AuthDebugger} from './imports/debugComponents';
 import GamificationDashboard from "./pages/GamificationDashboard";
 
 // Layout component that will be used across all pages
@@ -373,65 +373,65 @@ const App = () => {
           <Route 
             path="/cart" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <Cart />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/wishlist" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <Wishlist />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/orders" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <OrderStatus />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/order-tracking" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <OrderTracking />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/order-tracking/:id" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <OrderTrackingDetail />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/gamification" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <GamificationDashboard />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/profile" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <Account />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
           <Route 
             path="/profile/:section" 
             element={
-              <CustomerOnlyRoute redirectTo="/login">
+              <RoleBasedRouteGuard allowedRoles={["customer", "admin"]} redirectTo="/login" requireAuth={true}>
                 <Account />
-              </CustomerOnlyRoute>
+              </RoleBasedRouteGuard>
             } 
           />
 

@@ -38,28 +38,28 @@ const BusinessAnalyticsWidget = ({ analytics }) => {
   const metrics = [
     {
       title: 'Total Revenue',
-      value: `$${totalRevenue.toLocaleString()}`,
+      value: `₹${totalRevenue.toLocaleString()}`,
       change: totalRevenueChange,
       icon: <FiDollarSign size={24} />,
       color: 'var(--brand-primary)'
     },
     {
       title: 'Net Revenue',
-      value: `$${netRevenue.toLocaleString()}`,
+      value: `₹${netRevenue.toLocaleString()}`,
       change: netRevenueChange,
       icon: <FiBarChart2 size={24} />,
       color: '#10b981'
     },
     {
       title: 'Gross Profit',
-      value: `$${grossProfit.toLocaleString()}`,
+      value: `₹${grossProfit.toLocaleString()}`,
       change: grossProfitChange,
       icon: <FiTrendingUp size={24} />,
       color: '#3b82f6'
     },
     {
       title: 'Operating Costs',
-      value: `$${operatingCosts.toLocaleString()}`,
+      value: `₹${operatingCosts.toLocaleString()}`,
       change: operatingCostsChange,
       icon: <FiPieChart size={24} />,
       color: '#ef4444'
@@ -73,7 +73,7 @@ const BusinessAnalyticsWidget = ({ analytics }) => {
     },
     {
       title: 'Avg Order Value',
-      value: `$${averageOrderValue}`,
+      value: `₹${averageOrderValue}`,
       change: averageOrderValueChange,
       icon: <FiDollarSign size={24} />,
       color: 'var(--brand-primary)'
@@ -102,7 +102,7 @@ const BusinessAnalyticsWidget = ({ analytics }) => {
     },
     {
       title: 'Customer Acq. Cost',
-      value: `$${customerAcquisitionCost}`,
+      value: `₹${customerAcquisitionCost}`,
       change: customerAcquisitionCostChange,
       icon: <FiDollarSign size={24} />,
       color: '#06b6d4'

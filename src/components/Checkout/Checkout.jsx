@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   FiCreditCard,
   FiMapPin,
-  FiShoppingBag,
   FiLoader,
   FiCheck,
   FiPlus,
@@ -15,11 +14,13 @@ import {
   FiTruck,
   FiStar,
   FiGift,
+  FiShoppingBag,
 } from "react-icons/fi";
 import useAddressStore from "../../store/useAddress";
 import { useCartStore } from "../../store/useCart";
 import { useOrderStore } from "../../store/useOrder";
 import { useAuthStore } from "../../store/useAuth";
+import { useAdminAuthStore } from "../../store/Admin/useAdminAuth";
 import Button from "../ui/Button";
 import Modal from "../ui/Modal";
 import toast from "react-hot-toast";
@@ -27,6 +28,7 @@ import toast from "react-hot-toast";
 const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated: isAdminAuthenticated, admin } = useAdminAuthStore();
   const { items: cartItems, totalAmount: cartTotal } = useCartStore();
   const {
     placeOrderFromCart,
@@ -40,6 +42,7 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
     isLoading: addressLoading,
   } = useAddressStore();
   const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [adminAddress, setAdminAddress] = useState(null);
   // Calculate order details
   const isCartOrder = !product;
   const orderItems = isCartOrder ? cartItems : [{ ...product, quantity }];
@@ -48,27 +51,87 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
   const shipping = 0;
   const orderTotal = subtotal + tax + shipping;
 
-  useEffect(() => {
-    if (isOpen && isAuthenticated) {
-      // Check if Razorpay is loaded
-      if (!window.Razorpay) {
-        console.error("Razorpay SDK not loaded when checkout opened");
-        toast.error(
-          "Payment gateway not available. Please refresh and try again."
-        );
-        return;
-      }
-      console.log("Razorpay SDK is available:", !!window.Razorpay);
-      fetchAddresses();
+  // Check if current user is an admin
+  const isAdmin = isAdminAuthenticated;
+
+  // Function to create address from admin profile
+  const createAddressFromAdminProfile = () => {
+    if (!admin || !admin.address) {
+      console.error("Admin profile or address is missing", admin);
+      return null;
     }
-  }, [isOpen, isAuthenticated]); // eslint-disable-line react-hooks/exhaustive-deps
+    
+    // Generate a unique ID for the admin address
+    const adminAddressId = `admin-${admin.id || Date.now()}`;
+    
+    console.log("Creating admin address from profile:", admin.address);
+    
+    // Create an address object in the format expected by the checkout component
+    return {
+      id: adminAddressId,
+      name: admin.name || 'Admin',
+      address: admin.address?.street || '',
+      city: admin.address?.city || '',
+      state: admin.address?.state || '',
+      pincode: admin.address?.zipCode || '',
+      phone: admin.phone || admin.phoneNumber || '',
+      isDefault: true,
+      // Add any other required fields
+      type: 'Work',
+      street_address: admin.address?.street || '',
+      postal_code: admin.address?.zipCode || '',
+      phone_number: admin.phone || admin.phoneNumber || '',
+      is_default: true,
+    };
+  };
 
   useEffect(() => {
+    if (!isOpen) return;
+    
+    // Check if Razorpay is loaded
+    if (!window.Razorpay) {
+      console.error("Razorpay SDK not loaded when checkout opened");
+      toast.error(
+        "Payment gateway not available. Please refresh and try again."
+      );
+      return;
+    }
+    console.log("Razorpay SDK is available:", !!window.Razorpay);
+    
+    // Handle different auth scenarios
+    if (isAuthenticated) {
+      // Regular user flow - fetch addresses from API
+      console.log("Regular user authenticated, fetching addresses");
+      fetchAddresses();
+    } else if (isAdmin) {
+      // Admin flow - create address from admin profile
+      console.log("Admin user detected, creating address from admin profile:", admin);
+      const formattedAdminAddress = createAddressFromAdminProfile();
+      if (formattedAdminAddress) {
+        setAdminAddress(formattedAdminAddress);
+        console.log("Using admin address for checkout:", formattedAdminAddress);
+      } else {
+        console.error("Failed to create admin address from profile:", admin);
+        toast.error("Admin profile address is incomplete. Please update your profile first.");
+      }
+    } else {
+      console.log("No authentication detected");
+    }
+  }, [isOpen, isAuthenticated, isAdmin, admin]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle address selection
+  useEffect(() => {
+    // For regular users
     if (addresses.length > 0 && !selectedAddressId) {
       const defaultAddress = addresses.find((addr) => addr.isDefault);
       setSelectedAddressId(defaultAddress?.id || addresses[0]?.id);
     }
-  }, [addresses, selectedAddressId]);
+    
+    // For admin users
+    if (isAdmin && adminAddress && !selectedAddressId) {
+      setSelectedAddressId(adminAddress.id);
+    }
+  }, [addresses, adminAddress, selectedAddressId, isAdmin]);
 
   // Close checkout modal when payment is successful
   useEffect(() => {
@@ -83,10 +146,12 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
   const handlePlaceOrder = async () => {
     console.log("handlePlaceOrder called", {
       isAuthenticated,
+      isAdmin,
       selectedAddressId,
     });
 
-    if (!isAuthenticated) {
+    // User must be either a regular authenticated user or an admin
+    if (!isAuthenticated && !isAdmin) {
       toast.error("Please login to place order");
       navigate("/login");
       return;
@@ -96,6 +161,21 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
       toast.error("Please select a delivery address");
       return;
     }
+    
+    // For admin users, ensure the admin token is available
+    if (isAdmin) {
+      const adminToken = localStorage.getItem("admin_token");
+      if (!adminToken) {
+        toast.error("Admin authentication required. Please re-login.");
+        navigate("/admin/login");
+        return;
+      }
+      // Clean token and log for debugging
+      const cleanToken = adminToken.replace ? adminToken.replace(/^"|"$/g, '') : adminToken;
+      console.log("Admin token found (first 15 chars):", 
+        cleanToken.substring(0, Math.min(15, cleanToken.length)) + "...");
+      console.log("Proceeding with order placement as admin");
+    }
 
     try {
       console.log("Attempting to place order...", {
@@ -103,6 +183,7 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
         product,
         quantity,
         selectedAddressId,
+        isAdmin
       });
 
       let result;
@@ -452,6 +533,86 @@ const Checkout = ({ isOpen, onClose, product = null, quantity = 1 }) => {
                     >
                       Please wait while we fetch your saved addresses
                     </p>
+                  </div>
+                ) : isAdmin && adminAddress ? (
+                  // Admin address display
+                  <div className="space-y-4">
+                    <div
+                      className="group/addr p-6 rounded-xl cursor-pointer transition-all duration-300 border-2 transform shadow-lg scale-[1.02]"
+                      style={{
+                        backgroundColor: "var(--bg-accent-light)",
+                        borderColor: "var(--brand-primary)",
+                        boxShadow: "0 10px 25px -5px rgba(245, 158, 11, 0.25)"
+                      }}
+                      onClick={() => setSelectedAddressId(adminAddress.id)}
+                    >
+                      <div className="flex items-start">
+                        <div className="flex items-center mr-6 mt-1">
+                          <div
+                            className="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300 scale-110"
+                            style={{
+                              borderColor: "var(--brand-primary)",
+                              backgroundColor: "var(--brand-primary)"
+                            }}
+                          >
+                            <FiCheck
+                              className="text-sm animate-fadeIn"
+                              style={{ color: "var(--text-on-brand)" }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center mb-3">
+                            <div className="flex items-center mr-4">
+                              <FiUser
+                                className="mr-2 text-lg"
+                                style={{ color: "var(--brand-primary)" }}
+                              />
+                              <span
+                                className="font-semibold text-lg"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {adminAddress.name}
+                              </span>
+                            </div>
+                            <span
+                              className="px-3 py-1 text-xs font-semibold rounded-full transform group-hover/addr:scale-105 transition-transform duration-300"
+                              style={{
+                                backgroundColor: "var(--success-color)",
+                                color: "white",
+                              }}
+                            >
+                              ⭐ Admin
+                            </span>
+                          </div>
+                          <div className="flex items-start mb-3">
+                            <FiLocation
+                              className="mr-3 mt-1 text-lg flex-shrink-0"
+                              style={{ color: "var(--brand-primary)" }}
+                            />
+                            <p
+                              className="text-base leading-relaxed"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {adminAddress.address}, {adminAddress.city},
+                              {adminAddress.state} - {adminAddress.pincode}
+                            </p>
+                          </div>
+                          <div className="flex items-center">
+                            <FiPhone
+                              className="mr-3 text-lg"
+                              style={{ color: "var(--brand-primary)" }}
+                            />
+                            <p
+                              className="text-base font-medium"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              {adminAddress.phone}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ) : addresses.length > 0 ? (
                   <div className="space-y-4">

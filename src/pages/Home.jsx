@@ -11,6 +11,124 @@ import useFrontendCacheStore from "../store/useFrontendCacheStore";
 import ProductCard from "../components/ProductList/ProductCard";
 import Pagination from "../components/common/Pagination";
 import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import api from "../services/api";
+
+// Component to display custom section content from admin
+const CustomSectionContent = ({ section }) => {
+  const [content, setContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSectionContent = async () => {
+      if (!section?.section_id) return;
+      
+      try {
+        const response = await api.get(`/admin/homepage/sections/${section.section_id}/content/`);
+        if (response.status === 200 && response.data.content) {
+          setContent(response.data.content);
+        }
+      } catch (error) {
+        console.error('Error fetching section content:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSectionContent();
+  }, [section?.section_id]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!content || Object.keys(content).length === 0) {
+    return null;
+  }
+
+  // Convert content object to array
+  const contentItems = Object.values(content).filter(item => item && typeof item === 'object');
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+      {contentItems.map((item, index) => (
+        <motion.div
+          key={item.id || index}
+          className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300"
+          style={{ backgroundColor: "var(--bg-primary)", boxShadow: "var(--shadow-medium)" }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: index * 0.1 }}
+        >
+          {item.image_url && (
+            <div className="aspect-w-16 aspect-h-9">
+              <img
+                src={item.image_url}
+                alt={item.title || 'Section content'}
+                className="w-full h-48 object-cover"
+              />
+            </div>
+          )}
+          
+          <div className="p-6">
+            {item.title && (
+              <h3 
+                className="text-xl font-semibold mb-2"
+                style={{ color: "var(--text-primary)" }}
+              >
+                {item.title}
+              </h3>
+            )}
+            
+            {item.subtitle && (
+              <p 
+                className="text-sm mb-2 font-medium"
+                style={{ color: "var(--brand-primary)" }}
+              >
+                {item.subtitle}
+              </p>
+            )}
+            
+            {item.description && (
+              <p 
+                className="text-sm mb-4"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {item.description}
+              </p>
+            )}
+            
+            {item.link && item.cta && (
+              <a
+                href={item.link}
+                className="inline-block px-4 py-2 rounded-md text-white font-medium transition-colors duration-200 hover:opacity-90"
+                style={{ backgroundColor: "var(--brand-primary)" }}
+              >
+                {item.cta}
+              </a>
+            )}
+            
+            {item.tag && (
+              <span 
+                className="inline-block px-2 py-1 text-xs rounded-full mt-2"
+                style={{ 
+                  backgroundColor: "var(--brand-primary-light)", 
+                  color: "var(--brand-primary)" 
+                }}
+              >
+                {item.tag}
+              </span>
+            )}
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
 
 const Home = () => {
   const { products, featuredProducts, fetchProducts } = useProductStore();
@@ -297,8 +415,272 @@ const Home = () => {
           </section>
         );
 
+      case 'brands':
+        return (
+          <div key={section.section_id} style={sectionStyle}>
+            <BrandsSection 
+              title={section.title}
+              description={section.description}
+            />
+          </div>
+        );
+
+      case 'section_banners':
+        return (
+          <section key={section.section_id} style={sectionStyle} className="py-12">
+            <div className="container mx-auto px-4">
+              <div className="mb-8">
+                <h2
+                  style={{ color: "var(--text-primary)" }}
+                  className="text-3xl font-bold mb-3 text-left"
+                >
+                  {section.title || "Section Banners"}
+                </h2>
+                <div
+                  className="h-1 w-24 rounded-full"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                ></div>
+                <p
+                  className="mt-4 text-lg text-left"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {section.description || "Promotional banner section"}
+                </p>
+              </div>
+              
+              {/* Grid layout for banners - similar to Poorvika style */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {section.config?.banners?.map((banner, index) => (
+                  <div key={index} className="relative group overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+                    <img 
+                      src={banner.image_url || 'https://via.placeholder.com/400x250'} 
+                      alt={banner.title || `Banner ${index + 1}`}
+                      className="w-full h-48 object-cover group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                    <div className="absolute bottom-4 left-4 right-4 text-white">
+                      <h3 className="text-lg font-semibold mb-1">{banner.title}</h3>
+                      {banner.subtitle && <p className="text-sm opacity-90">{banner.subtitle}</p>}
+                    </div>
+                  </div>
+                )) || (
+                  // Placeholder banners if none configured
+                  Array.from({length: 6}).map((_, index) => (
+                    <div key={index} className="relative group overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-300">
+                      <div className="w-full h-48 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                        <div className="text-center text-white">
+                          <h3 className="text-lg font-semibold mb-1">Banner {index + 1}</h3>
+                          <p className="text-sm opacity-90">Configure in admin panel</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'phones_and_gadgets':
+        return (
+          <section key={section.section_id} style={sectionStyle} className="py-12">
+            <div className="container mx-auto px-4">
+              <div className="mb-8">
+                <h2
+                  style={{ color: "var(--text-primary)" }}
+                  className="text-3xl font-bold mb-3 text-left"
+                >
+                  {section.title || "Phones & Gadgets"}
+                </h2>
+                <div
+                  className="h-1 w-24 rounded-full"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                ></div>
+                <p
+                  className="mt-4 text-lg text-left"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {section.description || "Latest smartphones and mobile accessories"}
+                </p>
+              </div>
+              
+              {/* Grid layout for phones and gadgets */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {products
+                  .filter(p => p.category?.toLowerCase().includes('phone') || p.category?.toLowerCase().includes('mobile'))
+                  .slice(0, 8)
+                  .map((product, index) => (
+                    <ProductCard key={product.id || index} product={product} />
+                  ))}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'electronic_gadgets':
+        return (
+          <section key={section.section_id} style={sectionStyle} className="py-12">
+            <div className="container mx-auto px-4">
+              <div className="mb-8">
+                <h2
+                  style={{ color: "var(--text-primary)" }}
+                  className="text-3xl font-bold mb-3 text-left"
+                >
+                  {section.title || "Electronic Gadgets"}
+                </h2>
+                <div
+                  className="h-1 w-24 rounded-full"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                ></div>
+                <p
+                  className="mt-4 text-lg text-left"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {section.description || "Latest electronic devices and gadgets"}
+                </p>
+              </div>
+              
+              {/* Grid layout for electronic gadgets */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {products
+                  .filter(p => p.category?.toLowerCase().includes('electronic') || p.category?.toLowerCase().includes('gadget'))
+                  .slice(0, 8)
+                  .map((product, index) => (
+                    <ProductCard key={product.id || index} product={product} />
+                  ))}
+              </div>
+            </div>
+          </section>
+        );
+
+      case 'footer_section':
+        return (
+          <section key={section.section_id} style={sectionStyle} className="py-12">
+            <div className="container mx-auto px-4">
+              <div className="mb-8">
+                <h2
+                  style={{ color: "var(--text-primary)" }}
+                  className="text-3xl font-bold mb-3 text-left"
+                >
+                  {section.title || "Footer Information"}
+                </h2>
+                <div
+                  className="h-1 w-24 rounded-full"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                ></div>
+                <p
+                  className="mt-4 text-lg text-left"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {section.description || "Important links and information"}
+                </p>
+              </div>
+              
+              {/* Footer content grid */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div>
+                  <h3 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Company</h3>
+                  <ul className="space-y-2">
+                    <li><Link to="/about" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>About Us</Link></li>
+                    <li><Link to="/contact" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Contact</Link></li>
+                    <li><Link to="/careers" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Careers</Link></li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Support</h3>
+                  <ul className="space-y-2">
+                    <li><Link to="/help" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Help Center</Link></li>
+                    <li><Link to="/returns" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Returns</Link></li>
+                    <li><Link to="/warranty" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Warranty</Link></li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Legal</h3>
+                  <ul className="space-y-2">
+                    <li><Link to="/privacy" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Privacy Policy</Link></li>
+                    <li><Link to="/terms" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Terms of Service</Link></li>
+                    <li><Link to="/refund" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Refund Policy</Link></li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-4" style={{ color: "var(--text-primary)" }}>Connect</h3>
+                  <ul className="space-y-2">
+                    <li><a href="#" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Facebook</a></li>
+                    <li><a href="#" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Twitter</a></li>
+                    <li><a href="#" className="hover:text-orange-500" style={{ color: "var(--text-secondary)" }}>Instagram</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </section>
+        );
+
       default:
-        return null;
+        // Handle custom/unknown section types with content from admin
+        return (
+          <section key={section.section_id} style={sectionStyle} className="py-12">
+            <div className="container mx-auto px-4">
+              <div className="text-center">
+                <h2
+                  className="text-3xl font-bold mb-4"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {section.title || "New Section"}
+                </h2>
+                <div
+                  className="h-1 w-24 rounded-full mx-auto mb-4"
+                  style={{ backgroundColor: "var(--brand-primary)" }}
+                ></div>
+                <p
+                  className="text-lg mb-8"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  {section.description || "This section is being prepared. Content coming soon!"}
+                </p>
+                
+                {/* Display custom content if available */}
+                <CustomSectionContent section={section} />
+                
+                {/* Fallback message if no content */}
+                {(!section.content || Object.keys(section.content || {}).length === 0) && (
+                  <div 
+                    className="bg-gray-50 rounded-lg p-8 border-2 border-dashed border-gray-300"
+                    style={{ backgroundColor: "var(--bg-primary)", borderColor: "var(--border-primary)" }}
+                  >
+                    <div className="text-center">
+                      <div className="mb-4">
+                        <div 
+                          className="w-16 h-16 rounded-full mx-auto flex items-center justify-center"
+                          style={{ backgroundColor: "var(--brand-primary-light)" }}
+                        >
+                          <span 
+                            className="text-2xl"
+                            style={{ color: "var(--brand-primary)" }}
+                          >
+                            🚀
+                          </span>
+                        </div>
+                      </div>
+                      <h3 
+                        className="text-xl font-semibold mb-2"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        Content Coming Soon
+                      </h3>
+                      <p 
+                        className="text-sm"
+                        style={{ color: "var(--text-secondary)" }}
+                      >
+                        This section has been created and is ready for content. 
+                        Visit the admin panel to add banners, images, and other content.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        );
     }
   };
 

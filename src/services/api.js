@@ -228,15 +228,20 @@ adminApi.interceptors.request.use(
     
     if (adminToken) {
       try {
+        // Clean any quoted tokens (to handle token stored with quotes)
+        const cleanToken = adminToken.replace ? adminToken.replace(/^"|"$/g, '') : adminToken;
+        
         // Set the authorization header directly
-        config.headers.Authorization = `Bearer ${adminToken}`;
+        config.headers.Authorization = `Bearer ${cleanToken}`;
         
         // Debug log to verify token format (remove in production)
         console.log("Using admin token (first 15 chars):", 
-          adminToken.substring(0, Math.min(15, adminToken.length)) + "...");
+          cleanToken.substring(0, Math.min(15, cleanToken.length)) + "...");
       } catch (err) {
         console.error("Error processing admin token:", err);
       }
+    } else {
+      console.warn("No admin token found for request to:", config.url);
     }
     return config;
   },

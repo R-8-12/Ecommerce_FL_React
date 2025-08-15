@@ -18,9 +18,11 @@ import Modal from '../../ui/Modal';
 
 const GamificationManager = () => {
   const [activeTab, setActiveTab] = useState('rewards');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // Start with loading true
   const { updateGamification } = useFrontendCacheStore(); // For cache invalidation
-  const [settings, setSettings] = useState({
+  
+  // Default settings structure to prevent undefined errors
+  const defaultSettings = {
     rewards: {
       signup_bonus: 100,
       login_bonus: 5,
@@ -55,8 +57,9 @@ const GamificationManager = () => {
       referral_system_enabled: true,
       daily_rewards_enabled: true
     }
-  });
-
+  };
+  
+  const [settings, setSettings] = useState(defaultSettings);
   const [editingReward, setEditingReward] = useState(null);
   const [rewardModalOpen, setRewardModalOpen] = useState(false);
 
@@ -77,14 +80,25 @@ const GamificationManager = () => {
     try {
       const response = await adminApi.get('/admin/gamification/settings/');
       
-      if (response.data.success) {
-        setSettings(response.data.settings);
+      if (response.data.success && response.data.settings) {
+        // Merge loaded settings with default structure to prevent undefined errors
+        const loadedSettings = response.data.settings;
+        setSettings(prevSettings => ({
+          rewards: { ...prevSettings.rewards, ...loadedSettings.rewards },
+          spinWheel: { 
+            ...prevSettings.spinWheel, 
+            ...loadedSettings.spinWheel,
+            rewards: loadedSettings.spinWheel?.rewards || prevSettings.spinWheel.rewards
+          },
+          economy: { ...prevSettings.economy, ...loadedSettings.economy },
+          features: { ...prevSettings.features, ...loadedSettings.features }
+        }));
       }
       
-      setIsLoading(false);
     } catch (err) {
       console.error('Failed to load gamification settings:', err);
-      toast.error('Failed to load gamification settings');
+      toast.error('Failed to load gamification settings. Using default values.');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -154,15 +168,16 @@ const GamificationManager = () => {
   };
 
   const _addSpinWheelReward = (reward) => {
+    const currentRewards = settings?.spinWheel?.rewards || [];
     const newReward = {
       ...reward,
-      id: Math.max(...settings.spinWheel.rewards.map(r => r.id)) + 1
+      id: currentRewards.length > 0 ? Math.max(...currentRewards.map(r => r.id)) + 1 : 1
     };
     setSettings(prev => ({
       ...prev,
       spinWheel: {
         ...prev.spinWheel,
-        rewards: [...prev.spinWheel.rewards, newReward]
+        rewards: [...currentRewards, newReward]
       }
     }));
   };
@@ -172,7 +187,7 @@ const GamificationManager = () => {
       ...prev,
       spinWheel: {
         ...prev.spinWheel,
-        rewards: prev.spinWheel.rewards.map(r => 
+        rewards: (prev.spinWheel?.rewards || []).map(r => 
           r.id === id ? { ...r, ...updatedReward } : r
         )
       }
@@ -180,7 +195,8 @@ const GamificationManager = () => {
   };
 
   const deleteSpinWheelReward = (id) => {
-    if (settings.spinWheel.rewards.length <= 3) {
+    const currentRewards = settings?.spinWheel?.rewards || [];
+    if (currentRewards.length <= 3) {
       toast.error('Minimum 3 rewards required for spin wheel');
       return;
     }
@@ -189,7 +205,7 @@ const GamificationManager = () => {
       ...prev,
       spinWheel: {
         ...prev.spinWheel,
-        rewards: prev.spinWheel.rewards.filter(r => r.id !== id)
+        rewards: currentRewards.filter(r => r.id !== id)
       }
     }));
   };
@@ -201,7 +217,8 @@ const GamificationManager = () => {
       toast.success('Reward updated successfully');
     } else {
       // Add new reward
-      if (settings.spinWheel.rewards.length >= 8) {
+      const currentRewards = settings?.spinWheel?.rewards || [];
+      if (currentRewards.length >= 8) {
         toast.error('Maximum 8 rewards allowed for optimal spin wheel display');
         return;
       }
@@ -213,199 +230,95 @@ const GamificationManager = () => {
     setEditingReward(null);
   };
 
-  const renderRewardsTab = () => (
-    <div className="space-y-6">
-      <h3 
-        className="text-lg font-semibold"
-        style={{ color: 'var(--text-primary)' }}
-      >
-        Coin Reward Configuration
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(settings.rewards).map(([key, value]) => (
-          <div key={key}>
-            <label 
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </label>
-            <input
-              type="number"
-              value={value}
-              onChange={(e) => updateRewardsSetting(key, parseInt(e.target.value))}
-              className="w-full px-3 py-2 rounded-md border"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-primary)',
-                color: 'var(--text-primary)'
-              }}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderSpinWheelTab = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+  const renderRewardsTab = () => {
+    if (!settings?.rewards) {
+      return <div className="text-center py-8">Loading rewards settings...</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
         <h3 
           className="text-lg font-semibold"
           style={{ color: 'var(--text-primary)' }}
         >
-          Spin Wheel Configuration
+          Coin Reward Configuration
         </h3>
-        <Button
-          onClick={() => {
-            setEditingReward(null);
-            setRewardModalOpen(true);
-          }}
-          variant="primary"
-          className="flex items-center space-x-2"
-        >
-          <FiPlus /> <span>Add Reward</span>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div>
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={settings.spinWheel.enabled}
-              onChange={(e) => updateSpinWheelSetting('enabled', e.target.checked)}
-            />
-            <span style={{ color: 'var(--text-primary)' }}>Enable Spin Wheel</span>
-          </label>
-        </div>
-        <div>
-          <label 
-            className="block text-sm font-medium mb-2"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            Daily Spins Allowed
-          </label>
-          <input
-            type="number"
-            value={settings.spinWheel.daily_spins}
-            onChange={(e) => updateSpinWheelSetting('daily_spins', parseInt(e.target.value))}
-            className="w-full px-3 py-2 rounded-md border"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              borderColor: 'var(--border-primary)',
-              color: 'var(--text-primary)'
-            }}
-          />
-        </div>
-      </div>
-
-      <div>
-        <h4 
-          className="text-md font-medium mb-4"
-          style={{ color: 'var(--text-primary)' }}
-        >
-          Spin Wheel Rewards
-        </h4>
-        <div className="space-y-3">
-          {settings.spinWheel.rewards.map((reward) => (
-            <div 
-              key={reward.id}
-              className="flex items-center justify-between p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-primary)'
-              }}
-            >
-              <div className="flex items-center space-x-3">
-                {/* Color Preview */}
-                <div 
-                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center"
-                  style={{ backgroundColor: reward.color }}
-                >
-                  <span 
-                    className="text-xs font-bold"
-                    style={{ color: reward.textColor }}
-                  >
-                    {reward.type === 'coins' ? '🪙' : reward.type === 'discount' ? '%' : '🚚'}
-                  </span>
-                </div>
-                
-                <div>
-                  <span 
-                    className="font-medium"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {reward.label}
-                  </span>
-                  <div className="flex items-center space-x-2">
-                    <span 
-                      className="text-sm"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      Weight: {reward.weight}%
-                    </span>
-                    <span 
-                      className="text-xs px-2 py-1 rounded-full"
-                      style={{ 
-                        backgroundColor: `${reward.color}20`,
-                        color: reward.color
-                      }}
-                    >
-                      {reward.type}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={() => {
-                    setEditingReward(reward);
-                    setRewardModalOpen(true);
-                  }}
-                  variant="secondary"
-                  size="sm"
-                >
-                  <FiEdit />
-                </Button>
-                <Button
-                  onClick={() => deleteSpinWheelReward(reward.id)}
-                  variant="danger"
-                  size="sm"
-                >
-                  <FiTrash2 />
-                </Button>
-              </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Object.entries(settings.rewards).map(([key, value]) => (
+            <div key={key}>
+              <label 
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </label>
+              <input
+                type="number"
+                value={value}
+                onChange={(e) => updateRewardsSetting(key, parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-md border"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)'
+                }}
+              />
             </div>
           ))}
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
-  const renderEconomyTab = () => (
-    <div className="space-y-6">
-      <h3 
-        className="text-lg font-semibold"
-        style={{ color: 'var(--text-primary)' }}
-      >
-        Coin Economy Settings
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(settings.economy).map(([key, value]) => (
-          <div key={key}>
+  const renderSpinWheelTab = () => {
+    if (!settings?.spinWheel) {
+      return <div className="text-center py-8">Loading spin wheel settings...</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 
+            className="text-lg font-semibold"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Spin Wheel Configuration
+          </h3>
+          <Button
+            onClick={() => {
+              setEditingReward(null);
+              setRewardModalOpen(true);
+            }}
+            variant="primary"
+            className="flex items-center space-x-2"
+          >
+            <FiPlus /> <span>Add Reward</span>
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                checked={settings.spinWheel.enabled || false}
+                onChange={(e) => updateSpinWheelSetting('enabled', e.target.checked)}
+              />
+              <span style={{ color: 'var(--text-primary)' }}>Enable Spin Wheel</span>
+            </label>
+          </div>
+          <div>
             <label 
               className="block text-sm font-medium mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
-              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              Daily Spins Allowed
             </label>
             <input
               type="number"
-              value={value}
-              onChange={(e) => updateEconomySetting(key, parseInt(e.target.value))}
+              value={settings.spinWheel.daily_spins || 1}
+              onChange={(e) => updateSpinWheelSetting('daily_spins', parseInt(e.target.value))}
               className="w-full px-3 py-2 rounded-md border"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
@@ -414,60 +327,188 @@ const GamificationManager = () => {
               }}
             />
           </div>
-        ))}
-      </div>
+        </div>
 
-      <div 
-        className="p-4 rounded-lg border"
-        style={{
-          backgroundColor: 'var(--bg-accent-light)',
-          borderColor: 'var(--warning-color)'
-        }}
-      >
-        <h4 
-          className="font-medium mb-2"
-          style={{ color: 'var(--warning-color)' }}
-        >
-          Economy Preview
-        </h4>
-        <p style={{ color: 'var(--text-secondary)' }}>
-          • {settings.economy.coin_to_currency_rate} coins = ₹1<br/>
-          • Minimum redemption: {settings.economy.min_redeem_coins} coins<br/>
-          • Maximum order payment with coins: {settings.economy.max_redeem_percentage}%<br/>
-          • Coins expire after: {settings.economy.coin_expiry_days} days
-        </p>
-      </div>
-    </div>
-  );
-
-  const renderFeaturesTab = () => (
-    <div className="space-y-6">
-      <h3 
-        className="text-lg font-semibold"
-        style={{ color: 'var(--text-primary)' }}
-      >
-        Gamification Features
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {Object.entries(settings.features).map(([key, value]) => (
-          <div key={key}>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={value}
-                onChange={(e) => updateFeatureSetting(key, e.target.checked)}
-                style={{ accentColor: 'var(--brand-primary)' }}
-              />
-              <span style={{ color: 'var(--text-primary)' }}>
-                {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </span>
-            </label>
+        <div>
+          <h4 
+            className="text-md font-medium mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Spin Wheel Rewards
+          </h4>
+          <div className="space-y-3">
+            {(settings.spinWheel.rewards || []).map((reward) => (
+              <div 
+                key={reward.id}
+                className="flex items-center justify-between p-4 rounded-lg border"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-primary)'
+                }}
+              >
+                <div className="flex items-center space-x-3">
+                  {/* Color Preview */}
+                  <div 
+                    className="w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center"
+                    style={{ backgroundColor: reward.color }}
+                  >
+                    <span 
+                      className="text-xs font-bold"
+                      style={{ color: reward.textColor }}
+                    >
+                      {reward.type === 'coins' ? '🪙' : reward.type === 'discount' ? '%' : '🚚'}
+                    </span>
+                  </div>
+                  
+                  <div>
+                    <span 
+                      className="font-medium"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {reward.label}
+                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span 
+                        className="text-sm"
+                        style={{ color: 'var(--text-secondary)' }}
+                      >
+                        Weight: {reward.weight}%
+                      </span>
+                      <span 
+                        className="text-xs px-2 py-1 rounded-full"
+                        style={{ 
+                          backgroundColor: `${reward.color}20`,
+                          color: reward.color
+                        }}
+                      >
+                        {reward.type}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => {
+                      setEditingReward(reward);
+                      setRewardModalOpen(true);
+                    }}
+                    variant="secondary"
+                    size="sm"
+                  >
+                    <FiEdit />
+                  </Button>
+                  <Button
+                    onClick={() => deleteSpinWheelReward(reward.id)}
+                    variant="danger"
+                    size="sm"
+                  >
+                    <FiTrash2 />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
+
+  const renderEconomyTab = () => {
+    if (!settings?.economy) {
+      return <div className="text-center py-8">Loading economy settings...</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
+        <h3 
+          className="text-lg font-semibold"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Coin Economy Settings
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Object.entries(settings.economy).map(([key, value]) => (
+            <div key={key}>
+              <label 
+                className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              </label>
+              <input
+                type="number"
+                value={value}
+                onChange={(e) => updateEconomySetting(key, parseInt(e.target.value))}
+                className="w-full px-3 py-2 rounded-md border"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  borderColor: 'var(--border-primary)',
+                  color: 'var(--text-primary)'
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div 
+          className="p-4 rounded-lg border"
+          style={{
+            backgroundColor: 'var(--bg-accent-light)',
+            borderColor: 'var(--warning-color)'
+          }}
+        >
+          <h4 
+            className="font-medium mb-2"
+            style={{ color: 'var(--warning-color)' }}
+          >
+            Economy Preview
+          </h4>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            • {settings.economy.coin_to_currency_rate || 10} coins = ₹1<br/>
+            • Minimum redemption: {settings.economy.min_redeem_coins || 100} coins<br/>
+            • Maximum order payment with coins: {settings.economy.max_redeem_percentage || 50}%<br/>
+            • Coins expire after: {settings.economy.coin_expiry_days || 365} days
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderFeaturesTab = () => {
+    if (!settings?.features) {
+      return <div className="text-center py-8">Loading features settings...</div>;
+    }
+    
+    return (
+      <div className="space-y-6">
+        <h3 
+          className="text-lg font-semibold"
+          style={{ color: 'var(--text-primary)' }}
+        >
+          Gamification Features
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {Object.entries(settings.features).map(([key, value]) => (
+            <div key={key}>
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={value || false}
+                  onChange={(e) => updateFeatureSetting(key, e.target.checked)}
+                  style={{ accentColor: 'var(--brand-primary)' }}
+                />
+                <span style={{ color: 'var(--text-primary)' }}>
+                  {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </span>
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   const renderAnalyticsTab = () => (
     <div className="space-y-6">
@@ -568,45 +609,57 @@ const GamificationManager = () => {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex space-x-4 mb-6 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
-              activeTab === tab.id ? 'shadow-md' : ''
-            }`}
+      {/* Show loading state while fetching initial data */}
+      {isLoading && !settings ? (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <FiRefreshCw className="animate-spin mx-auto mb-4" size={32} style={{ color: 'var(--brand-primary)' }} />
+            <p style={{ color: 'var(--text-secondary)' }}>Loading gamification settings...</p>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Tabs */}
+          <div className="flex space-x-4 mb-6 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all whitespace-nowrap ${
+                  activeTab === tab.id ? 'shadow-md' : ''
+                }`}
+                style={{
+                  backgroundColor: activeTab === tab.id 
+                    ? 'var(--brand-primary)' 
+                    : 'var(--bg-secondary)',
+                  color: activeTab === tab.id 
+                    ? 'var(--text-on-brand)' 
+                    : 'var(--text-primary)',
+                  borderColor: 'var(--border-primary)'
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Tab Content */}
+          <div 
+            className="rounded-lg border p-6"
             style={{
-              backgroundColor: activeTab === tab.id 
-                ? 'var(--brand-primary)' 
-                : 'var(--bg-secondary)',
-              color: activeTab === tab.id 
-                ? 'var(--text-on-brand)' 
-                : 'var(--text-primary)',
+              backgroundColor: 'var(--bg-secondary)',
               borderColor: 'var(--border-primary)'
             }}
           >
-            {tab.icon}
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div 
-        className="rounded-lg border p-6"
-        style={{
-          backgroundColor: 'var(--bg-secondary)',
-          borderColor: 'var(--border-primary)'
-        }}
-      >
-        {activeTab === 'rewards' && renderRewardsTab()}
-        {activeTab === 'spinwheel' && renderSpinWheelTab()}
-        {activeTab === 'economy' && renderEconomyTab()}
-        {activeTab === 'features' && renderFeaturesTab()}
-        {activeTab === 'analytics' && renderAnalyticsTab()}
-      </div>
+            {activeTab === 'rewards' && renderRewardsTab()}
+            {activeTab === 'spinwheel' && renderSpinWheelTab()}
+            {activeTab === 'economy' && renderEconomyTab()}
+            {activeTab === 'features' && renderFeaturesTab()}
+            {activeTab === 'analytics' && renderAnalyticsTab()}
+          </div>
+        </>
+      )}
 
       {/* Reward Edit Modal */}
       <Modal

@@ -12,6 +12,7 @@ import Button from "../../components/ui/Button";
 import Pagination from "../../components/common/Pagination";
 import optimizedApiService from "../../services/optimizedApiService";
 import { toast } from "react-hot-toast";
+import useAdminStore from "../../store/Admin/useAdminStore"; // Add the admin store
 
 const AdminOrders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -19,6 +20,9 @@ const AdminOrders = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState("newest"); // Add sorting state
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+
+  // Get the admin store
+  const adminStore = useAdminStore();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,7 +39,24 @@ const AdminOrders = () => {
 
   // Function to fetch orders using the optimized API service
   const fetchOrders = useCallback(async (page = 1, status = statusFilter) => {
+    // Use AbortController for request cancellation
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+    
     try {
+      // Prevent duplicate API calls by checking if already loading
+      if (loading) {
+        console.log("Skipping fetchOrders call - component already loading");
+        return;
+      }
+      
+      // Also check if admin store is already loading orders
+      if (adminStore.orders && adminStore.orders.loading) {
+        console.log("Skipping fetchOrders call - admin store already loading");
+        return;
+      }
+      
+      // Keep track of whether this component initiated the API call
       setLoading(true);
       
       // Map UI sort options to API sort parameters
@@ -50,61 +71,152 @@ const AdminOrders = () => {
       
       const { sortBy: apiSortBy, sortDirection } = sortMapping[sortBy] || sortMapping["newest"];
       
-      // Call the optimized API service
+      console.log(`Fetching orders page ${page} with status ${status}, sort: ${apiSortBy} ${sortDirection}`);
+      
+      // Call the optimized API service with the AbortController signal
       const response = await optimizedApiService.orders.getPaginated({
         page,
         pageSize: itemsPerPage,
         sortBy: apiSortBy,
         sortDirection,
         status: status !== "all" ? status : undefined
-      });
+      }, signal);
       
-      if (response.status === "success") {
-        const ordersData = response.data.orders || [];
-        const pagination = response.data.pagination || {};
+      // Check if request was aborted
+      if (signal.aborted) {
+        console.log("Request was aborted");
+        return;
+      }
+      
+      console.log("Orders API response:", response);
+      
+      if (response && (response.status === "success" || response.data)) {
+        // Handle response with flexible structure
+        const responseData = response.data || response;
+        const ordersData = responseData.orders || response.orders || [];
+        const pagination = responseData.pagination || response.pagination || {};
+        
+        console.log(`Got ${ordersData.length} orders`);
+        
+        // Ensure order objects have consistent properties
+        const normalizedOrders = ordersData.map(order => ({
+          ...order,
+          order_id: order.order_id || order.id,
+          status: order.status || "unknown",
+          created_at: order.created_at || order.createdAt || new Date().toISOString()
+        }));
         
         // Count orders by status
         const statusCounts = {};
-        ordersData.forEach(order => {
+        normalizedOrders.forEach(order => {
           const status = order.status || "unknown";
           statusCounts[status] = (statusCounts[status] || 0) + 1;
         });
         
+        // Include "all" count in statusCounts
+        statusCounts.all = normalizedOrders.length;
+        
+        // Update local state
         setOrders({
-          list: ordersData,
+          list: normalizedOrders,
           statusCounts,
-          totalItems: pagination.total_items || ordersData.length,
+          totalItems: pagination.total_items || normalizedOrders.length,
           hasMore: pagination.has_next || false
         });
         
+        // Update admin store with orders data using the proper method
+        if (adminStore.orders && typeof adminStore.fetchOrders === 'function') {
+          // Only update the store data directly, don't trigger another API call
+          console.log("Updating admin store without triggering API call");
+          if (adminStore.orders) {
+            adminStore.orders.list = normalizedOrders;
+            adminStore.orders.loading = false;
+            adminStore.orders.error = null;
+          }
+        }
+        
         // Log optimization metrics
+        const optimization = response.optimization || responseData.optimization;
         console.info(
-          `📈 Firebase optimization: ${response.optimization?.firebase_reads_saved || "Unknown"} reads saved`
+          `📈 Firebase optimization: ${optimization?.firebase_reads_saved || "Unknown"} reads saved`
         );
       } else {
-        throw new Error("Failed to fetch orders");
+        console.error("Invalid response format:", response);
+        throw new Error("Failed to fetch orders: Invalid response format");
       }
     } catch (error) {
       toast.error(`Error fetching orders: ${error.message}`);
       console.error("Order fetch error:", error);
+      
+      // Don't add test orders anymore - show empty state instead
+      console.log("API error occurred, showing empty orders list");
+      
+      // Update local state with empty orders
+      const emptyOrders = {
+        list: [],
+        statusCounts: { all: 0 },
+        totalItems: 0,
+        hasMore: false
+      };
+      setOrders(emptyOrders);
+      
+      // Update admin store properly
+      if (adminStore.orders) {
+        adminStore.orders.list = [];
+        adminStore.orders.loading = false;
+        adminStore.orders.error = error.message;
+      }
+      
+      // Clean up function to abort the request
+      return () => {
+        console.log("Aborting fetch orders request");
+        abortController.abort();
+      };
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, sortBy, itemsPerPage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, sortBy, itemsPerPage, adminStore]); // Intentionally exclude loading to prevent infinite loops
 
   useEffect(() => {
-    fetchOrders(currentPage, statusFilter);
-  }, [currentPage, statusFilter, sortBy]); // Refetch when these values change
+    // Check if admin store is already loading orders to prevent duplicate calls
+    if (adminStore.orders && adminStore.orders.loading) {
+      console.log("Skipping fetchOrders - admin store is already loading orders");
+      return;
+    }
+
+    // Use a debounce mechanism to prevent excessive API calls
+    const timer = setTimeout(() => {
+      console.log("Fetching orders with debounce...");
+      fetchOrders(currentPage, statusFilter);
+    }, 300);
+    
+    // Clean up the timer on component unmount or dependency changes
+    return () => clearTimeout(timer);
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, statusFilter, sortBy, adminStore.orders?.loading]); // Include adminStore loading state
 
   // Filter orders based on search query only (status filtering is done on the server)
   const filteredOrders = orders.list.filter((order) => {
+    // For null safety, ensure each property exists
+    const orderId = String(order.order_id || order.id || '');
+    const userId = String(order.user_id || '').toLowerCase();
+    const invoiceId = String(order.invoice_id || '').toLowerCase();
+    const customerName = String(order.customer_name || order.user_name || '').toLowerCase();
+    const userEmail = String(order.user_email || order.customer_email || '').toLowerCase();
+    
+    // If no search query, return all orders
+    if (!searchQuery) return true;
+    
+    // Otherwise, check if any field matches the search query
+    const query = searchQuery.toLowerCase();
     return (
-      !searchQuery || 
-      order.order_id?.toString().includes(searchQuery) ||
-      order.user_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.invoice_id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.user_email?.toLowerCase().includes(searchQuery.toLowerCase())
+      orderId.includes(query) ||
+      userId.includes(query) ||
+      invoiceId.includes(query) ||
+      customerName.includes(query) ||
+      userEmail.includes(query)
     );
   });
 
@@ -379,13 +491,39 @@ const AdminOrders = () => {
       </div>
       {/* Order table - now full width */}
       <div className="w-full">
-        <OrderTable
-          onSelectOrder={handleSelectOrder}
-          statusFilter={statusFilter}
-          searchQuery={searchQuery}
-          orders={paginatedOrders}
-          loading={loading}
-        />
+        {loading ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <div className="animate-pulse flex flex-col items-center">
+              <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-full mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="mt-6 h-32 bg-gray-200 rounded w-full"></div>
+            </div>
+          </div>
+        ) : paginatedOrders && paginatedOrders.length > 0 ? (
+          <OrderTable
+            onSelectOrder={handleSelectOrder}
+            statusFilter={statusFilter}
+            searchQuery={searchQuery}
+            orders={paginatedOrders}
+            loading={loading}
+          />
+        ) : (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <h3 className="text-xl font-medium mb-2">No Orders Found</h3>
+            <p className="text-gray-600 mb-4">There are no orders matching your filters.</p>
+            <Button
+              variant="primary"
+              size="sm"
+              fullWidth={false}
+              onClick={() => fetchOrders(1, "all")}
+              icon={<FiRefreshCw size={16} />}
+            >
+              Refresh Orders
+            </Button>
+          </div>
+        )}
 
         {/* Pagination */}
         {totalItems > 0 && (

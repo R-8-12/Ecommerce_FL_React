@@ -115,7 +115,7 @@ const CategoryList = () => {
           style={scrollbarHideStyles}
           tabIndex="0"
         >
-          <div className="flex gap-6 py-4 px-8">
+          <div className="flex gap-4 py-4 px-8">
             {/* Display loading state */}
             {categories.loading && (
               <div className="flex justify-center w-full py-8">
@@ -140,16 +140,16 @@ const CategoryList = () => {
                 to={`${category.redirect_url}`}
                 className="flex-shrink-0 flex flex-col items-center transition-transform duration-300 hover:-translate-y-2 group"
                 style={{
-                  width: "300px",
+                  width: "220px", // Increased from 300px to better fill space
                 }}
               >
-                {/* Enhanced Image container with premium card styling */}
+                {/* Enhanced Image container with larger size */}
                 <div
-                  className="flex items-center justify-center mb-6 relative overflow-hidden transition-all duration-500 hover:shadow-2xl bg-white rounded-3xl border group-hover:border-orange-300 group-hover:bg-gradient-to-br group-hover:from-orange-50 group-hover:to-red-50 group-hover:scale-105"
+                  className="flex items-center justify-center mb-4 relative overflow-hidden transition-all duration-500 hover:shadow-2xl bg-white rounded-3xl border group-hover:border-orange-300 group-hover:bg-gradient-to-br group-hover:from-orange-50 group-hover:to-red-50 group-hover:scale-105"
                   style={{
-                    width: "160px",
-                    height: "160px", 
-                    padding: "16px",
+                    width: "200px", // Increased from 160px
+                    height: "200px", // Increased from 160px
+                    padding: "20px", // Increased padding
                     border: "3px solid var(--border-primary)",
                     boxShadow: "0 8px 25px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.08)",
                     background: "linear-gradient(135deg, #ffffff 0%, #fafafa 100%)",
@@ -195,13 +195,13 @@ const CategoryList = () => {
                     </div>
                   )}
                 </div>
-                {/* Enhanced Category name with premium styling */}
+                {/* Enhanced Category name with larger styling */}
                 <h3
-                  className="text-center transition-all duration-500 group-hover:text-orange-600 group-hover:scale-105 px-3 py-2 rounded-xl font-bold bg-gradient-to-r from-white to-gray-50 group-hover:from-orange-50 group-hover:to-red-50 shadow-sm group-hover:shadow-md"
+                  className="text-center transition-all duration-500 group-hover:text-orange-600 group-hover:scale-105 px-4 py-3 rounded-xl font-bold bg-gradient-to-r from-white to-gray-50 group-hover:from-orange-50 group-hover:to-red-50 shadow-sm group-hover:shadow-md max-w-full"
                   style={{
                     color: "var(--text-primary)",
                     lineHeight: "1.4",
-                    fontSize: "15px",
+                    fontSize: "16px", // Increased from 15px
                     fontWeight: "700",
                     letterSpacing: "0.3px",
                     textShadow: "0 1px 2px rgba(0,0,0,0.1)",

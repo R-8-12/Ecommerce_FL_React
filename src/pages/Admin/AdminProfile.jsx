@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 const AdminProfile = () => {
   // Get admin data and necessary functions from the store
-  const { admin, logout, updateAdminProfile, isLoading } = useAdminAuthStore();
+  const { admin, adminLogout, updateAdminProfile, isLoading } = useAdminAuthStore();
   const navigate = useNavigate();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -14,16 +14,37 @@ const AdminProfile = () => {
     name: '',
     email: '',
     phone: '',
-    position: ''
+    position: '',
+    address: {
+      street: '',
+      city: '',
+      state: '',
+      zipCode: '',
+      country: 'India'
+    }
   });
+  const [updateError, setUpdateError] = useState(null);
   
   useEffect(() => {
     if (admin) {
+      // Reset any previous errors
+      setUpdateError(null);
+      
+      // Create a properly structured address object
+      const addressData = admin.address || {};
+      
       setFormData({
         name: admin.name || '',
         email: admin.email || '',
         phone: admin.phone || '',
-        position: admin.position || 'Administrator'
+        position: admin.position || 'Administrator',
+        address: {
+          street: addressData.street || '',
+          city: addressData.city || '',
+          state: addressData.state || '',
+          zipCode: addressData.zipCode || '',
+          country: addressData.country || 'India'
+        }
       });
     }
   }, [admin]);
@@ -39,19 +60,29 @@ const AdminProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      setUpdateError(null);
       console.log('Updating admin profile with data:', formData);
       await updateAdminProfile(formData);
       toast.success('Profile updated successfully');
       setIsEditing(false);
     } catch (error) {
-      toast.error('Failed to update profile');
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to update profile';
+      setUpdateError(errorMessage);
+      toast.error(errorMessage);
       console.error('Profile update error:', error);
     }
   };
   
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
+  const handleLogout = async () => {
+    try {
+      await adminLogout();
+      navigate('/admin/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Failed to logout. Redirecting anyway...');
+      // Force redirect even if logout fails
+      setTimeout(() => navigate('/admin/login'), 1000);
+    }
   };
   
   if (!admin) {
@@ -220,10 +251,10 @@ const AdminProfile = () => {
                         borderRadius: "var(--rounded-lg)",
                         backgroundColor: "var(--bg-primary)",
                         color: "var(--text-primary)",
-                        opacity: 0.7
+                        cursor: "not-allowed" // Show not-allowed cursor
                       }}
                       placeholder="Enter your email"
-                      disabled={true} // Email can't be changed
+                      readOnly={true} // Use readOnly instead of disabled to maintain visual consistency
                     />
                   ) : (
                     <p className="text-lg" style={{ color: "var(--text-primary)" }}>{formData.email}</p>
@@ -286,19 +317,188 @@ const AdminProfile = () => {
                   )}
                 </div>
                 
+                <div className="p-4 rounded-lg" style={{ 
+                  backgroundColor: "var(--bg-secondary)",
+                  borderRadius: "var(--rounded-lg)" 
+                }}>
+                  <div className="flex items-center mb-3" style={{ color: "var(--text-secondary)" }}>
+                    <FiUser className="mr-2" />
+                    <span className="font-medium">Address Information</span>
+                  </div>
+                  
+                  {isEditing ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+                          Street Address
+                        </label>
+                        <input
+                          type="text"
+                          name="street"
+                          value={formData.address?.street || ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            address: {
+                              ...formData.address,
+                              street: e.target.value
+                            }
+                          })}
+                          className="w-full px-4 py-2 border rounded-lg outline-none transition-colors"
+                          style={{
+                            borderColor: "var(--border)",
+                            borderRadius: "var(--rounded-lg)",
+                            backgroundColor: "var(--bg-primary)",
+                            color: "var(--text-primary)",
+                          }}
+                          placeholder="Enter your street address"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+                            City
+                          </label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={formData.address?.city || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              address: {
+                                ...formData.address,
+                                city: e.target.value
+                              }
+                            })}
+                            className="w-full px-4 py-2 border rounded-lg outline-none transition-colors"
+                            style={{
+                              borderColor: "var(--border)",
+                              borderRadius: "var(--rounded-lg)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
+                            placeholder="Enter city"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+                            State
+                          </label>
+                          <input
+                            type="text"
+                            name="state"
+                            value={formData.address?.state || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              address: {
+                                ...formData.address,
+                                state: e.target.value
+                              }
+                            })}
+                            className="w-full px-4 py-2 border rounded-lg outline-none transition-colors"
+                            style={{
+                              borderColor: "var(--border)",
+                              borderRadius: "var(--rounded-lg)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
+                            placeholder="Enter state"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+                            Postal/ZIP Code
+                          </label>
+                          <input
+                            type="text"
+                            name="zipCode"
+                            value={formData.address?.zipCode || ''}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              address: {
+                                ...formData.address,
+                                zipCode: e.target.value
+                              }
+                            })}
+                            className="w-full px-4 py-2 border rounded-lg outline-none transition-colors"
+                            style={{
+                              borderColor: "var(--border)",
+                              borderRadius: "var(--rounded-lg)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
+                            placeholder="Enter ZIP/postal code"
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm mb-1" style={{ color: "var(--text-secondary)" }}>
+                            Country
+                          </label>
+                          <input
+                            type="text"
+                            name="country"
+                            value={formData.address?.country || 'India'}
+                            onChange={(e) => setFormData({
+                              ...formData,
+                              address: {
+                                ...formData.address,
+                                country: e.target.value
+                              }
+                            })}
+                            className="w-full px-4 py-2 border rounded-lg outline-none transition-colors"
+                            style={{
+                              borderColor: "var(--border)",
+                              borderRadius: "var(--rounded-lg)",
+                              backgroundColor: "var(--bg-primary)",
+                              color: "var(--text-primary)",
+                            }}
+                            placeholder="Enter country"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-lg" style={{ color: "var(--text-primary)" }}>
+                      {formData.address?.street ? (
+                        <>
+                          <p>{formData.address.street}</p>
+                          <p>{formData.address.city}, {formData.address.state} {formData.address.zipCode}</p>
+                          <p>{formData.address.country}</p>
+                        </>
+                      ) : (
+                        <p className="text-gray-500">No address information provided</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
                 {isEditing && (
-                  <div className="flex justify-end">
-                    <button
-                      type="submit"
-                      className="flex items-center gap-2 px-6 py-2 rounded-lg transition-colors"
-                      style={{
-                        backgroundColor: "var(--brand-primary)",
-                        color: "var(--text-on-brand)",
-                        borderRadius: "var(--rounded-lg)"
-                      }}
-                    >
-                      <FiSave /> Save Changes
-                    </button>
+                  <div className="flex flex-col">
+                    {updateError && (
+                      <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+                        <FiAlertCircle className="inline-block mr-2" />
+                        {updateError}
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        type="submit"
+                        className="flex items-center gap-2 px-6 py-2 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: "var(--brand-primary)",
+                          color: "var(--text-on-brand)",
+                          borderRadius: "var(--rounded-lg)"
+                        }}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Saving...' : <><FiSave /> Save Changes</>}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

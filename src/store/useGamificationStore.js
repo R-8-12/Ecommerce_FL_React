@@ -131,10 +131,23 @@ const useGamificationStore = create(
                             _isCurrentlyFetching: false
                         });
                         
-                        console.log('Wallet fetched successfully:', { 
-                            balance: newCoinBalance, 
-                            wallet: walletData 
-                        });
+                        // Only log wallet fetch success once every 30 seconds for admin users
+                        const isAdmin = localStorage.getItem('admin_user') && localStorage.getItem('admin_token');
+                        if (!isAdmin) {
+                            console.log('Wallet fetched successfully:', { 
+                                balance: newCoinBalance, 
+                                wallet: walletData 
+                            });
+                        } else {
+                            const lastLogTime = window._lastWalletSuccessLog || 0;
+                            const now = Date.now();
+                            if (now - lastLogTime > 30000) {
+                                console.log('Wallet fetched successfully (admin):', { 
+                                    balance: newCoinBalance 
+                                });
+                                window._lastWalletSuccessLog = now;
+                            }
+                        }
                     } else {
                         set({ error: result.error, isLoading: false, _isCurrentlyFetching: false });
                         console.error('Failed to fetch wallet:', result.error);

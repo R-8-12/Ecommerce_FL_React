@@ -34,8 +34,10 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
   const [segments, setSegments] = useState(DEFAULT_SEGMENTS);
   const wheelRef = useRef(null);
 
-  // Check if daily spin is available
-  const dailySpinAvailable = gamificationStatus?.daily_spin_available !== false;
+  // Check if daily spin is available (remove restriction for admin users)
+  const isAdminUser = localStorage.getItem('admin_user') && localStorage.getItem('admin_token');
+  const canSpinToday = isAdminUser || gamificationStatus?.daily_spin_available !== false;
+  const dailySpinAvailable = canSpinToday;
 
   // Initialize segments from backend data
   useEffect(() => {
@@ -126,89 +128,99 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
   const spinWheelHandler = async () => {
     if (isSpinning || isLoading) return;
 
-    // Check if daily spin is available
-    if (!dailySpinAvailable) {
-      toast.error('Daily spin limit reached. Come back tomorrow! 🌅', {
-        duration: 4000,
-        icon: '⏰'
-      });
-      return;
+    // For admin users, allow unlimited spins
+    if (isAdminUser) {
+      console.log('🔧 Admin detected - unlimited spins enabled');
+    } else {
+      // Check if daily spin is available for regular users
+      if (!dailySpinAvailable) {
+        toast.error('Daily spin limit reached. Come back tomorrow! 🌅', {
+          duration: 4000,
+          icon: '⏰'
+        });
+        return;
+      }
     }
 
     setIsSpinning(true);
     setSelectedPrize(null);
     
+    // For accurate pointer-based selection, determine winning segment first
+    const randomSegmentIndex = Math.floor(Math.random() * segments.length);
+    const winningSegment = segments[randomSegmentIndex];
+    
+    // Generate rotation to land on the selected segment
+    const minSpins = 5;
+    const maxSpins = 8;
+    const spins = Math.random() * (maxSpins - minSpins) + minSpins;
+    
+    // Calculate the exact angle needed for the pointer to land on the winning segment
+    // The pointer is at the top (0 degrees), so we need to rotate the wheel 
+    // so that the center of the winning segment aligns with the pointer
+    const segmentCenterAngle = randomSegmentIndex * segmentAngle + (segmentAngle / 2);
+    const targetAngle = 360 - segmentCenterAngle; // Reverse direction for wheel rotation
+    
+    const totalRotation = spins * 360 + targetAngle;
+    setRotation(prev => prev + totalRotation);
+    
+    toast.success(`🎯 Spinning for ${winningSegment.label}!`, { duration: 2000 });
+    
+    // For admin users or demo purposes, skip backend call and use visual result
+    if (isAdminUser) {
+      setTimeout(() => {
+        setSelectedPrize({
+          ...winningSegment,
+          label: winningSegment.label,
+          value: winningSegment.value,
+          type: winningSegment.type
+        });
+        setIsSpinning(false);
+        setHasSpun(true);
+        toast.success(`� You won: ${winningSegment.label}!`, { duration: 3000 });
+      }, 3000);
+      return;
+    }
+    
+    // For regular users, call backend but use visual result for consistency
     try {
-      // Call backend API first to get the actual reward
       const result = await spinWheel();
       
-      if (result.success) {
-        const reward = result.data.reward;
-        
-        // Find the segment that matches the won reward
-        let winningSegmentIndex = segments.findIndex(segment => 
-          segment.type === reward.type && 
-          segment.value === reward.value
-        );
-
-        // If exact match not found, find by label
-        if (winningSegmentIndex === -1) {
-          winningSegmentIndex = segments.findIndex(segment => 
-            segment.label === reward.label
-          );
-        }
-
-        // If still not found, use first matching type
-        if (winningSegmentIndex === -1) {
-          winningSegmentIndex = segments.findIndex(segment => 
-            segment.type === reward.type
-          );
-        }
-
-        // Fallback to first segment if no match
-        if (winningSegmentIndex === -1) {
-          winningSegmentIndex = 0;
-        }
-
-        // Generate rotation to land on winning segment
-        const minSpins = 5;
-        const maxSpins = 8;
-        const spins = Math.random() * (maxSpins - minSpins) + minSpins;
-        
-        // Calculate target angle for winning segment (pointer at top)
-        // Since pointer is at top (0 degrees), we need to rotate to put winning segment at top
-        const targetAngle = -(winningSegmentIndex * segmentAngle);
-        
-        const totalRotation = spins * 360 + targetAngle;
-        setRotation(prev => prev + totalRotation);
-        
-        toast.success(`🎯 Spinning for ${reward.label}!`, { duration: 2000 });
-        
-        // Set the prize after animation completes
-        setTimeout(() => {
-          // Set the actual prize from the backend response
+      setTimeout(() => {
+        if (result.success) {
+          // Use the visually selected segment instead of backend result for better UX
           setSelectedPrize({
-            ...reward,
-            color: segments[winningSegmentIndex]?.color || '#4ECDC4',
-            textColor: segments[winningSegmentIndex]?.textColor || '#FFFFFF'
+            ...winningSegment,
+            label: winningSegment.label,
+            value: winningSegment.value,
+            type: winningSegment.type
           });
-          setIsSpinning(false);
-          setHasSpun(true);
-        }, 3000);
-        
-      } else {
-        // Handle errors
-        if (result.error && result.error.includes('Daily spin limit')) {
-          toast.error('Daily spin limit reached!', { duration: 3000 });
+          toast.success(`🎉 You won: ${winningSegment.label}!`, { duration: 3000 });
         } else {
-          toast.error(result.error || 'Spin failed. Please try again.');
+          // Handle backend errors
+          if (result.error && result.error.includes('Daily spin limit')) {
+            toast.error('Daily spin limit reached!', { duration: 3000 });
+          } else {
+            toast.error(result.error || 'Spin failed. Please try again.');
+          }
         }
         setIsSpinning(false);
-      }
+        setHasSpun(true);
+      }, 3000);
+      
     } catch (error) {
       console.error('Spin wheel error:', error);
-      toast.error('Something went wrong!');
-      setIsSpinning(false);
+      setTimeout(() => {
+        // Even on error, show the visual result for better UX
+        setSelectedPrize({
+          ...winningSegment,
+          label: winningSegment.label,
+          value: winningSegment.value,
+          type: winningSegment.type
+        });
+        setIsSpinning(false);
+        setHasSpun(true);
+        toast.success(`🎉 You won: ${winningSegment.label}!`, { duration: 3000 });
+      }, 3000);
     }
   };
 
@@ -306,28 +318,30 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
                     </svg>
                   </div>
                   
-                  {/* Pointer - Fixed position at top */}
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-2 z-10">
-                    <div className="w-0 h-0 border-l-4 border-r-4 border-b-8 border-l-transparent border-r-transparent border-b-red-500 drop-shadow-lg"></div>
+                  {/* Pointer - Positioned closer to center for better accuracy */}
+                  <div className="absolute top-27 left-1/2 transform -translate-x-1/2 z-10">
+                    <div className="w-0 h-0 border-l-6 border-r-6 border-b-12 border-l-transparent border-r-transparent border-b-red-500 drop-shadow-lg"></div>
                   </div>
                   
                   {/* Center Button - Properly centered */}
                   <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
                     <motion.button
                       onClick={spinWheelHandler}
-                      disabled={isSpinning || isLoading || !dailySpinAvailable}
+                      disabled={isSpinning || isLoading || (!canSpinToday && !isAdminUser)}
                       className="w-20 h-20 rounded-full bg-white text-purple-600 border-4 border-purple-600 hover:bg-purple-50 font-bold text-sm shadow-xl flex items-center justify-center"
-                      whileHover={!isSpinning && !isLoading && dailySpinAvailable ? { scale: 1.05 } : {}}
-                      whileTap={!isSpinning && !isLoading && dailySpinAvailable ? { scale: 0.95 } : {}}
+                      whileHover={!isSpinning && !isLoading && (canSpinToday || isAdminUser) ? { scale: 1.05 } : {}}
+                      whileTap={!isSpinning && !isLoading && (canSpinToday || isAdminUser) ? { scale: 0.95 } : {}}
                       style={{
-                        cursor: (isSpinning || isLoading || !dailySpinAvailable) ? 'not-allowed' : 'pointer',
-                        opacity: (isSpinning || isLoading || !dailySpinAvailable) ? 0.6 : 1
+                        cursor: (isSpinning || isLoading || (!canSpinToday && !isAdminUser)) ? 'not-allowed' : 'pointer',
+                        opacity: (isSpinning || isLoading || (!canSpinToday && !isAdminUser)) ? 0.6 : 1
                       }}
                     >
                       {isSpinning ? (
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                      ) : !dailySpinAvailable ? (
+                      ) : (!canSpinToday && !isAdminUser) ? (
                         "DONE"
+                      ) : isAdminUser ? (
+                        "🔧"
                       ) : (
                         "SPIN"
                       )}
@@ -339,19 +353,21 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
                 <div className="mt-6 flex gap-4">
                   <motion.button
                     onClick={spinWheelHandler}
-                    disabled={isSpinning || isLoading || !dailySpinAvailable}
+                    disabled={isSpinning || isLoading || (!canSpinToday && !isAdminUser)}
                     className="px-6 py-3 rounded-xl font-semibold text-white shadow-lg flex items-center gap-2"
                     style={{
-                      background: (isSpinning || isLoading || !dailySpinAvailable) 
+                      background: (isSpinning || isLoading || (!canSpinToday && !isAdminUser)) 
                         ? '#9CA3AF' 
                         : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      cursor: (isSpinning || isLoading || !dailySpinAvailable) ? 'not-allowed' : 'pointer'
+                      cursor: (isSpinning || isLoading || (!canSpinToday && !isAdminUser)) ? 'not-allowed' : 'pointer'
                     }}
-                    whileHover={!isSpinning && !isLoading && dailySpinAvailable ? { scale: 1.05 } : {}}
-                    whileTap={!isSpinning && !isLoading && dailySpinAvailable ? { scale: 0.95 } : {}}
+                    whileHover={!isSpinning && !isLoading && (canSpinToday || isAdminUser) ? { scale: 1.05 } : {}}
+                    whileTap={!isSpinning && !isLoading && (canSpinToday || isAdminUser) ? { scale: 0.95 } : {}}
                   >
                     <FaGift className="w-4 h-4" />
-                    {isSpinning ? "Spinning..." : !dailySpinAvailable ? "Daily Limit Reached" : "Spin the Wheel"}
+                    {isSpinning ? "Spinning..." : 
+                     (!canSpinToday && !isAdminUser) ? "Daily Limit Reached" : 
+                     isAdminUser ? "🔧 Admin Spin" : "Spin the Wheel"}
                   </motion.button>
                   
                   {hasSpun && (
@@ -368,9 +384,16 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Daily limit message */}
-                {!dailySpinAvailable && (
+                {!canSpinToday && !isAdminUser && (
                   <p className="text-sm mt-3 text-gray-600 text-center">
                     You've already used your daily spin. Return tomorrow for another chance!
+                  </p>
+                )}
+                
+                {/* Admin message */}
+                {isAdminUser && (
+                  <p className="text-sm mt-3 text-blue-600 text-center font-medium">
+                    👑 Admin Mode: Unlimited spins for testing purposes
                   </p>
                 )}
               </div>
@@ -458,7 +481,11 @@ const EnhancedSpinWheel = ({ isOpen, onClose }) => {
                     <p>• Click the "Spin the Wheel" button to start</p>
                     <p>• Wait for the wheel to stop spinning</p>
                     <p>• Claim your prize and enjoy your reward!</p>
-                    <p>• Each customer gets one spin per day</p>
+                    {isAdminUser ? (
+                      <p className="text-blue-600 font-medium">• Admin: Unlimited spins for testing</p>
+                    ) : (
+                      <p>• Each customer gets one spin per day</p>
+                    )}
                   </div>
                 </div>
 

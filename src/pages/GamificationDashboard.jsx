@@ -47,6 +47,7 @@ const GamificationDashboard = () => {
 
   const [activeTab, setActiveTab] = useState('overview');
   const [referralData, setReferralData] = useState(null);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Handle URL parameters
   useEffect(() => {
@@ -59,20 +60,31 @@ const GamificationDashboard = () => {
   }, [location.search]);
 
   useEffect(() => {
-    // Load gamification data if user is authenticated (customer or admin)
-    if ((isAuthenticated && user) || (isAdminAuth && admin)) {
-      fetchWallet();
-      fetchGamificationStatus();
-      fetchLeaderboard();
-      fetchAchievements();
+    // Load gamification data if user is authenticated (customer or admin) and not already loaded
+    const isUserAuth = (isAuthenticated && user) || (isAdminAuth && admin);
+    
+    if (isUserAuth && !dataLoaded) {
+      setDataLoaded(true);
       
-      // Fetch referral data
-      fetchReferralData().then(data => {
-        if (data) setReferralData(data);
-      });
+      // Use debounced versions to prevent rapid API calls
+      const loadData = async () => {
+        try {
+          await fetchWallet();
+          await fetchGamificationStatus();
+          await fetchLeaderboard();
+          await fetchAchievements();
+          
+          // Fetch referral data
+          const data = await fetchReferralData();
+          if (data) setReferralData(data);
+        } catch (error) {
+          console.error('Error loading gamification data:', error);
+        }
+      };
+      
+      loadData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, user, isAdminAuth, admin]); // Check both auth states
+  }, [isAuthenticated, user, isAdminAuth, admin, dataLoaded, fetchWallet, fetchGamificationStatus, fetchLeaderboard, fetchAchievements, fetchReferralData]);
 
   // Role-based access control - exclude delivery partners
   const isUserAuthenticated = (isAuthenticated && user) || (isAdminAuth && admin);

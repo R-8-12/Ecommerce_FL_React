@@ -34,7 +34,13 @@ class GamificationService {
             
             // For admin users, return a mock wallet with placeholder data
             if (isAdmin) {
-                console.log('Admin user detected, returning mock wallet data');
+                // Only log once every 10 seconds to prevent console flooding
+                const lastLogTime = this._lastWalletLogTime || 0;
+                const now = Date.now();
+                if (now - lastLogTime > 10000) {
+                    console.log('Admin user detected, returning mock wallet data');
+                    this._lastWalletLogTime = now;
+                }
                 return {
                     success: true,
                     data: {
@@ -54,8 +60,8 @@ class GamificationService {
                                 date_earned: new Date().toISOString()
                             }
                         ],
-                        can_spin: false,
-                        daily_spin_available: false
+                        can_spin: true, // Allow admin users to spin
+                        daily_spin_available: true // Always allow daily spin for admin
                     }
                 };
             }
@@ -169,7 +175,13 @@ class GamificationService {
             
             // For admin users, return mock gamification status
             if (isAdmin) {
-                console.log('Admin user detected, returning mock gamification status');
+                // Only log once every 10 seconds to prevent console flooding
+                const lastLogTime = this._lastStatusLogTime || 0;
+                const now = Date.now();
+                if (now - lastLogTime > 10000) {
+                    console.log('Admin user detected, returning mock gamification status');
+                    this._lastStatusLogTime = now;
+                }
                 return {
                     success: true,
                     data: {
@@ -180,7 +192,7 @@ class GamificationService {
                         achievements_count: 1,
                         available_achievements: 0,
                         login_streak: 100,
-                        daily_spin_available: false,
+                        daily_spin_available: true, // Always allow daily spin for admin testing
                         referral_code: 'ADMIN2023',
                         referral_count: 50
                     }

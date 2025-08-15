@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import api from "../services/api";
+import axios from "axios";
 import { useCartStore } from "./useCart";
 import toast from "react-hot-toast";
 
@@ -45,19 +46,48 @@ const initiateRazorpayPayment = (razorpayData, onSuccess, onFailure) => {
           order_id: razorpayData.app_order_id,
         };
 
-        // Verify payment on backend
-        api
-          .post("/users/order/razorpay/verify/", paymentData)
-          .then((verifyResponse) => {
-            console.log("Payment verified successfully:", verifyResponse.data);
-            if (onSuccess) onSuccess(verifyResponse.data);
-            resolve(verifyResponse.data);
-          })
-          .catch((error) => {
-            console.error("Payment verification failed:", error);
-            if (onFailure) onFailure(error);
-            reject(error);
+        // Check if admin token exists - if so, we need to use admin authentication
+        const adminToken = localStorage.getItem("admin_token");
+        
+        if (adminToken) {
+          console.log("Admin token detected, verifying payment with admin privileges");
+          // Create temporary axios instance with admin token
+          const adminApi = axios.create({
+            baseURL: api.defaults.baseURL,
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${adminToken}`
+            }
           });
+          
+          // Verify payment using admin token
+          adminApi
+            .post("/users/order/razorpay/verify/", paymentData)
+            .then((verifyResponse) => {
+              console.log("Admin payment verified successfully:", verifyResponse.data);
+              if (onSuccess) onSuccess(verifyResponse.data);
+              resolve(verifyResponse.data);
+            })
+            .catch((error) => {
+              console.error("Admin payment verification failed:", error);
+              if (onFailure) onFailure(error);
+              reject(error);
+            });
+        } else {
+          // Regular user flow
+          api
+            .post("/users/order/razorpay/verify/", paymentData)
+            .then((verifyResponse) => {
+              console.log("Payment verified successfully:", verifyResponse.data);
+              if (onSuccess) onSuccess(verifyResponse.data);
+              resolve(verifyResponse.data);
+            })
+            .catch((error) => {
+              console.error("Payment verification failed:", error);
+              if (onFailure) onFailure(error);
+              reject(error);
+            });
+        }
       },
       prefill: {
         // You can prefill user information if available
@@ -146,8 +176,41 @@ export const useOrderStore = create((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const response = await api.get("/users/orders/");
-      const orders = response.data.orders || [];
+      // Check if admin token exists - if so, we're an admin accessing customer pages
+      const adminToken = localStorage.getItem("admin_token");
+      const userToken = localStorage.getItem("token");
+      
+      let response;
+      
+      if (adminToken) {
+        console.log("Admin token detected, fetching orders with admin privileges");
+        // Create temporary axios instance with admin token
+        const adminApi = axios.create({
+          baseURL: api.defaults.baseURL,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`
+          }
+        });
+        
+        try {
+          // Get orders through admin API endpoint instead - fixed URL path
+          // Remove the "/api" prefix since the baseURL already includes it
+          response = await adminApi.get("/admin/orders/customer/");
+          console.log("Admin orders fetched successfully:", response?.data);
+        } catch (error) {
+          console.error("Error fetching admin orders:", error);
+          toast.error("Failed to fetch admin orders");
+          throw error;
+        }
+      } else if (userToken) {
+        // Normal customer flow
+        response = await api.get("/users/orders/");
+      } else {
+        throw new Error("No authentication token found");
+      }
+
+      const orders = response?.data?.orders || [];
 
       set({
         orders,
@@ -178,10 +241,7 @@ export const useOrderStore = create((set, get) => ({
         set({ isProcessingPayment: false });
         return null;
       }
-      // if(get().isProcessingPayment) {
-      //   console.log("Order is already being processed, skipping duplicate request");
-      //   return get().currentOrder;
-      // }
+      
       // Get cart items from cart store
       const cartItems = useCartStore.getState().items;
       console.log("Cart items:", cartItems);
@@ -207,16 +267,46 @@ export const useOrderStore = create((set, get) => ({
       };
 
       console.log("Order data being sent:", orderData);
-      // Check if order is already being processed
-      // if (get().isProcessingPayment) {
-      //   console.log("Order is already being processed, skipping duplicate request");
-      //   return get().currentOrder;
-      // }
-      // Use POST method for order creation to match API requirements
-      const response = await api.post(
-        "/users/order/razorpay/create/",
-        orderData
-      );
+      
+      // Check if admin token exists - if so, we need to use admin authentication
+      const adminToken = localStorage.getItem("admin_token");
+      let response;
+      
+      if (adminToken) {
+        console.log("Admin token detected, creating order with admin privileges");
+        
+        // Clean any quoted tokens (to handle token stored with quotes)
+        const cleanToken = adminToken.replace ? adminToken.replace(/^"|"$/g, '') : adminToken;
+        
+        console.log("Using cleaned admin token (first 15 chars):", 
+          cleanToken.substring(0, Math.min(15, cleanToken.length)) + "...");
+        
+        // Create temporary axios instance with admin token
+        const adminApi = axios.create({
+          baseURL: api.defaults.baseURL,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${cleanToken}`
+          }
+        });
+        
+        try {
+          // Special endpoint for admin placing orders - switch endpoint for admin users
+          response = await adminApi.post("/admin/place-customer-order/", orderData);
+          console.log("Admin order creation successful through admin endpoint");
+        } catch (adminError) {
+          console.error("Error using admin endpoint, falling back to standard endpoint:", adminError);
+          
+          // Fallback to standard endpoint
+          response = await adminApi.post("/users/order/razorpay/create/", orderData);
+        }
+      } else {
+        // Regular user flow
+        response = await api.post(
+          "/users/order/razorpay/create/",
+          orderData
+        );
+      }
 
       console.log("API response:", response.data);
 
@@ -347,10 +437,45 @@ export const useOrderStore = create((set, get) => ({
 
       console.log("Single product order data being sent:", orderData);
 
-      const response = await api.post(
-        "/users/order/razorpay/create/",
-        orderData
-      );
+      // Check if admin token exists - if so, we need to use admin authentication
+      const adminToken = localStorage.getItem("admin_token");
+      let response;
+      
+      if (adminToken) {
+        console.log("Admin token detected, creating single product order with admin privileges");
+        
+        // Clean any quoted tokens (to handle token stored with quotes)
+        const cleanToken = adminToken.replace ? adminToken.replace(/^"|"$/g, '') : adminToken;
+        
+        console.log("Using cleaned admin token (first 15 chars):", 
+          cleanToken.substring(0, Math.min(15, cleanToken.length)) + "...");
+        
+        // Create temporary axios instance with admin token
+        const adminApi = axios.create({
+          baseURL: api.defaults.baseURL,
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${cleanToken}`
+          }
+        });
+        
+        try {
+          // Special endpoint for admin placing orders - switch endpoint for admin users
+          response = await adminApi.post("/admin/place-customer-order/", orderData);
+          console.log("Admin single product order creation successful through admin endpoint");
+        } catch (adminError) {
+          console.error("Error using admin endpoint, falling back to standard endpoint:", adminError);
+          
+          // Fallback to standard endpoint
+          response = await adminApi.post("/users/order/razorpay/create/", orderData);
+        }
+      } else {
+        // Regular user flow
+        response = await api.post(
+          "/users/order/razorpay/create/",
+          orderData
+        );
+      }
 
       console.log("Single product API response:", response.data);
 

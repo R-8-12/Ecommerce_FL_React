@@ -43,6 +43,7 @@ import {
 import Button from '../../ui/Button';
 import ConfirmModal from '../../ui/ConfirmModal';
 import useHomepageSectionStore from '../../../store/Admin/useHomepageSectionStore';
+import SectionContentManager from './SectionContentManager';
 import toast from 'react-hot-toast';
 
 // Enhanced section types with icons and descriptions (matching backend exactly)
@@ -305,7 +306,7 @@ const UserFriendlyHomepageManager = () => {
     error,
     fetchSections,
     addSection,
-    updateSection,
+    editSection,
     deleteSection,
     toggleSection,
     reorderSections,
@@ -320,6 +321,8 @@ const UserFriendlyHomepageManager = () => {
   const [confirmModal, setConfirmModal] = useState({ show: false, section: null });
   const [filterCategory, setFilterCategory] = useState('all');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [showContentManager, setShowContentManager] = useState(false);
+  const [selectedSection, setSelectedSection] = useState(null);
 
   // Enhanced form state
   const [newSection, setNewSection] = useState({
@@ -495,7 +498,7 @@ const UserFriendlyHomepageManager = () => {
         return;
       }
 
-      await updateSection(sectionId, { 
+      await editSection(sectionId, { 
         ...editingSection, 
         title: editingSection.title.trim() 
       });
@@ -518,11 +521,21 @@ const UserFriendlyHomepageManager = () => {
       return;
     }
 
-    // For now, redirect to section-specific content management
+    // For sections that support inline content management
+    const supportedSections = [
+      'section_banners', 'brands', 'phones_and_gadgets', 
+      'electronic_gadgets', 'footer_section', 'banners'
+    ];
+    
+    if (supportedSections.includes(section.section_type)) {
+      setSelectedSection(section);
+      setShowContentManager(true);
+      return;
+    }
+
+    // For sections that redirect to specialized pages
     if (section.section_type === 'best_selling') {
-      // For best selling, we could manage which products are featured
       toast.success('Opening product management for Best Selling section...');
-      // Could redirect to a specific product management page
       window.open('/admin/products?section=best_selling', '_blank');
     } else if (section.section_type === 'featured_products') {
       toast.success('Opening product management for Featured Products...');
@@ -532,14 +545,37 @@ const UserFriendlyHomepageManager = () => {
       window.open('/admin/content/banners', '_blank');
     } else if (section.section_type === 'blog_section') {
       toast.success('Opening blog management...');
-      // Will implement blog management
       window.open('/admin/content/blogs', '_blank');
     } else {
-      // Generic content management - use toast() instead of toast.info()
+      // Generic content management notification
       toast(`Content management for ${section.section_type} - Feature coming soon!`, {
         duration: 3000,
         icon: 'ℹ️',
       });
+    }
+  };
+
+  // Handle saving section content
+  const handleSaveSectionContent = async (sectionContent) => {
+    try {
+      if (!selectedSection) return;
+      
+      const sectionId = selectedSection.section_id || selectedSection.id;
+      
+      // Update the section configuration with the new content
+      await editSection(sectionId, {
+        ...selectedSection,
+        config: {
+          ...selectedSection.config,
+          banners: sectionContent // For section_banners type
+        }
+      });
+      
+      toast.success('Section content updated successfully');
+      await fetchSections(); // Refresh sections list
+    } catch (error) {
+      console.error('Error saving section content:', error);
+      toast.error('Failed to save section content');
     }
   };
 
@@ -940,6 +976,17 @@ const UserFriendlyHomepageManager = () => {
         message="Are you sure you want to delete this section? This action cannot be undone."
         confirmText="Delete"
         confirmVariant="danger"
+      />
+
+      {/* Section Content Manager Modal */}
+      <SectionContentManager
+        section={selectedSection}
+        isOpen={showContentManager}
+        onClose={() => {
+          setShowContentManager(false);
+          setSelectedSection(null);
+        }}
+        onSave={handleSaveSectionContent}
       />
     </div>
   );
